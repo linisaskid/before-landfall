@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sources | Before Landfall</title>
+  <meta name="description" content="References for cyclone facts and safety advice on Before Landfall, grouped by the pages where they are used.">
+  <meta name="theme-color" content="#f3f7f6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c1e27" media="(prefers-color-scheme: dark)">
+  <script>
+    // Runs before first paint: apply the saved theme and the header's starting state,
+    // so the page does not flash or jump while the main scripts load.
+    (function () {
+      const root = document.documentElement;
+      try {
+        const saved = localStorage.getItem("theme");
+        if (saved === "light" || saved === "dark") root.dataset.theme = saved;
+      } catch (error) {}
+      root.classList.add("header-motion-initializing");
+      if (window.scrollY > 15 || (window.visualViewport ? window.visualViewport.width : window.innerWidth) <= 870) {
+        root.classList.add("header-is-compact");
+      }
+      // Hover effects stay off until the pointer really moves, so a link that happens
+      // to sit under a resting cursor does not light up as the page loads.
+      root.classList.add("hover-cold");
+      let firstX = -1;
+      let firstY = -1;
+
+      function arm() {
+        root.classList.remove("hover-cold");
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerdown", arm);
+      }
+
+      function onMove(event) {
+        if (firstX < 0) {
+          firstX = event.clientX;
+          firstY = event.clientY;
+          return;
+        }
+
+        if (Math.abs(event.clientX - firstX) + Math.abs(event.clientY - firstY) > 12) arm();
+      }
+
+      window.addEventListener("pointermove", onMove, { passive: true });
+      window.addEventListener("pointerdown", arm, { passive: true });
+    })();
+  </script>
+  <link rel="icon" href="images/logo.svg" type="image/svg+xml">
+  <link rel="preload" href="fonts/fall-sans-text-regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/fall-sans-display-bold.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="motion.css">
+  <script>document.documentElement.classList.add("motion-pending");</script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <img src="images/logo.svg" alt="" width="36" height="36">
+        <span class="brand-wordmark" aria-hidden="true"><span class="brand-wordmark-initial">B</span><span class="brand-wordmark-fold"><span class="brand-wordmark-expansion">efore Landfa</span></span><span class="brand-wordmark-slashes">//</span></span>
+        <span class="visually-hidden">Before Landfall</span>
+      </a>
+      <nav aria-label="Main">
+        <ul class="nav-list">
+          <li><a href="cyclones.html">Cyclones</a></li>
+          <li><a href="history.html">History</a></li>
+          <li><a href="calculator.html">Calculator</a></li>
+          <li><a href="warnings.html">Warnings</a></li>
+          <li><a href="prepare.html">Prepare</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page-main">
+    <header class="support-hero container support-hero--sources">
+      <div class="support-hero-copy" data-reveal>
+        <p class="eyebrow">Sources <span class="eyebrow-divider">/</span> Research desk</p>
+        <h1>Follow each fact to its source.</h1>
+        <p class="lead">Historical assessments, scientific research and official guidance sit behind the information on these pages. Filter the list to see where each source is used.</p>
+        <p class="hero-equation"><span>CLAIM</span><b aria-hidden="true">→</b><span>SOURCE</span><b aria-hidden="true">→</b><span>CONTEXT</span></p>
+      </div>
+      <figure class="support-art support-art--sources" aria-labelledby="source-art-title" data-smooth data-reveal data-reveal-delay="1">
+        <div class="support-art-heading"><span>REFERENCE INDEX</span><span>FIELD NOTES</span></div>
+        <svg class="source-diagram" viewBox="0 0 560 330" role="img" aria-labelledby="source-art-title source-art-description">
+          <title id="source-art-title">A stack of indexed reference cards</title>
+          <desc id="source-art-description">Three overlapping cards represent research, official guidance and historical records, connected by a line to the pages that use them.</desc>
+          <rect width="560" height="330" rx="24" fill="var(--surface)"/>
+          <path d="M150 212V275M280 212V275M410 212V275" stroke="var(--rule)" stroke-width="1.6" stroke-dasharray="3 5"/>
+          <g transform="rotate(-8 150 140)">
+            <rect x="70" y="80" width="160" height="120" rx="11" fill="var(--paper)" stroke="var(--c-alert)" stroke-width="2.5"/>
+            <g stroke="var(--sea)" stroke-opacity=".65" stroke-width="2" stroke-linecap="round"><path d="M122 124H202"/><path d="M122 142H182"/><path d="M122 160H192"/></g>
+            <circle cx="96" cy="108" r="14" fill="var(--paper)" stroke="var(--c-alert)" stroke-width="3"/>
+            <text x="96" y="112" text-anchor="middle" fill="var(--ink)" font-size="10" font-weight="700">01</text>
+          </g>
+          <g transform="rotate(2 280 130)">
+            <rect x="200" y="70" width="160" height="120" rx="11" fill="var(--paper)" stroke="var(--c-prepare)" stroke-width="2.5"/>
+            <g stroke="var(--sea)" stroke-opacity=".65" stroke-width="2" stroke-linecap="round"><path d="M252 114H336"/><path d="M252 132H316"/><path d="M252 150H326"/></g>
+            <circle cx="226" cy="98" r="14" fill="var(--paper)" stroke="var(--c-prepare)" stroke-width="3"/>
+            <text x="226" y="102" text-anchor="middle" fill="var(--ink)" font-size="10" font-weight="700">02</text>
+          </g>
+          <g transform="rotate(9 410 142)">
+            <rect x="330" y="82" width="160" height="120" rx="11" fill="var(--paper)" stroke="var(--c-evacuate)" stroke-width="2.5"/>
+            <g stroke="var(--sea)" stroke-opacity=".65" stroke-width="2" stroke-linecap="round"><path d="M382 126H460"/><path d="M382 144H440"/><path d="M382 162H450"/></g>
+            <circle cx="356" cy="110" r="14" fill="var(--paper)" stroke="var(--c-evacuate)" stroke-width="3"/>
+            <text x="356" y="114" text-anchor="middle" fill="var(--ink)" font-size="10" font-weight="700">03</text>
+          </g>
+          <path d="M71 283H491" stroke="var(--sea)" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="150" cy="283" r="7" fill="var(--c-alert)"/>
+          <circle cx="280" cy="283" r="7" fill="var(--c-prepare)"/>
+          <circle cx="410" cy="283" r="7" fill="var(--c-evacuate)"/>
+          <g fill="var(--ink-soft)" font-size="9" font-weight="700" letter-spacing="1" text-anchor="middle">
+            <text x="150" y="306">SCIENCE</text><text x="280" y="306">GUIDANCE</text><text x="410" y="306">HISTORY</text>
+          </g>
+</svg>
+        <figcaption><span>Trace the claim. Read its context.</span><span>Source index</span></figcaption>
+      </figure>
+    </header>
+
+    <section class="block container sources-section" aria-labelledby="references-title">
+      <div class="reference-toolbar">
+        <div><p class="section-index">01 <span>/</span> THE REFERENCE LIST</p><h2 id="references-title">References</h2><p>The small numbers next to facts and images on each page link to the matching entry here. Open the original source for the full context.</p></div>
+        <div class="reference-controls">
+          <div class="form-field reference-filter"><label for="reference-filter">Show references used on</label><select id="reference-filter"><option value="all">All pages</option><option value="home">Home</option><option value="cyclones">Cyclones</option><option value="history">History</option><option value="calculator">Calculator</option><option value="warnings">Warnings</option><option value="prepare">Prepare</option></select></div>
+          <p class="reference-count" id="reference-count" role="status" aria-live="polite">23 references shown.</p>
+        </div>
+      </div>
+      <p class="visually-hidden" id="copy-status" role="status" aria-live="polite"></p>
+      <ol class="reference-list" id="reference-list">
+        <li class="reference-item" data-reference id="ref-01" data-num="01" data-pages="history"><div class="reference-body"><p class="reference-citation">Amnesty International. (2023). <em>Myanmar: Military authorities exacerbate the suffering caused by Cyclone Mocha</em>. <a href="https://www.amnesty.org/en/documents/asa16/6875/2023/en/" target="_blank" rel="noopener">https://www.amnesty.org/en/documents/asa16/6875/2023/en/</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-02" data-num="02" data-pages="warnings"><div class="reference-body" id="dmh-reference"><p class="reference-citation">Department of Meteorology and Hydrology, Myanmar. (n.d.). <em>Official website</em>. <a href="https://www.dmh.gov.mm/" target="_blank" rel="noopener">https://www.dmh.gov.mm/</a></p><p class="reference-note">Official meteorological information for Myanmar. Check the current notices before acting.</p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-03" data-num="03" data-pages="history cyclones"><div class="reference-body"><p class="reference-citation">Fritz, H. M., Blount, C. D., Thwin, S., Thu, M. K., &amp; Chan, N. (2009). Cyclone Nargis storm surge in Myanmar. <em>Nature Geoscience, 2</em>(7), 448–449. <a href="https://doi.org/10.1038/ngeo558" target="_blank" rel="noopener">https://doi.org/10.1038/ngeo558</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-04" data-num="04" data-pages="history cyclones"><div class="reference-body"><p class="reference-citation">Global Facility for Disaster Reduction and Recovery. (n.d.). <em>Myanmar—2008—PDNA undertaken after Cyclone Nargis killed 84,537 people</em>. World Bank. <a href="https://www.gfdrr.org/en/myanmar-2008-pdna-undertaken-after-cyclone-nargis-killed-84537-people" target="_blank" rel="noopener">https://www.gfdrr.org/en/myanmar-2008-pdna-undertaken-after-cyclone-nargis-killed-84537-people</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-05" data-num="05" data-pages="warnings"><div class="reference-body" id="haque-reference"><p class="reference-citation">Haque, U., Hashizume, M., Kolivras, K. N., Overgaard, H. J., Das, B., &amp; Yamamoto, T. (2012). Reduced death rates from cyclones in Bangladesh: What more needs to be done? <em>Bulletin of the World Health Organization, 90</em>(2), 150–156. <a href="https://doi.org/10.2471/BLT.11.088302" target="_blank" rel="noopener">https://doi.org/10.2471/BLT.11.088302</a></p><p class="reference-note">This study discusses evacuation and communication barriers in Bangladesh; the Warnings page labels that context and does not treat it as a survey of Myanmar.</p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-06" data-num="06" data-pages="cyclones"><div class="reference-body"><p class="reference-citation">Hurricanes: Science and Society. (n.d.). <em>1979—Typhoon Tip</em>. University of Rhode Island. <a href="https://hurricanescience.org/history/storms/1970s/tip/index.html" target="_blank" rel="noopener">https://hurricanescience.org/history/storms/1970s/tip/index.html</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-07" data-num="07" data-pages="none"><div class="reference-body"><p class="reference-citation">Hurricanes: Science and Society. (n.d.). <em>2008—Cyclone Nargis</em>. University of Rhode Island. <a href="https://hurricanescience.org/history/storms/2000s/cyclonenargis/index.html" target="_blank" rel="noopener">https://hurricanescience.org/history/storms/2000s/cyclonenargis/index.html</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-08" data-num="08" data-pages="history"><div class="reference-body"><p class="reference-citation">IRIN. (n.d.). <em>Image library: Cyclone Nargis in the Ayeyarwady Delta</em>. The New Humanitarian. <a href="https://www.thenewhumanitarian.org/media/57413" target="_blank" rel="noopener">https://www.thenewhumanitarian.org/media/57413</a></p><p class="reference-note">Used for the loss of draught animals and food and seed stocks.</p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-09" data-num="09" data-pages="cyclones"><div class="reference-body"><p class="reference-citation">Japan International Cooperation Agency, Sanyu Consultants Inc., &amp; Nippon Koei Co., Ltd. (2011, October). <em>The project for preservation of farming area for urgent rehabilitation of agricultural production and rural life in areas affected by Cyclone Nargis in the Republic of the Union of Myanmar: Final report, main report</em>. <a href="https://openjicareport.jica.go.jp/pdf/12039871_01.pdf" target="_blank" rel="noopener">https://openjicareport.jica.go.jp/pdf/12039871_01.pdf</a></p><p class="reference-note">The township figures shown on the Cyclones page are from a compilation attributed to this report. Other sources report different figures.</p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-10" data-num="10" data-pages="history"><div class="reference-body"><p class="reference-citation">Mogul, R., Rebane, T., Salai, T. Z., &amp; Deaton, J. (2023, May 16). <em>Hundreds feared dead in Myanmar after Cyclone Mocha</em>. CNN. <a href="https://www.cnn.com/2023/05/16/asia/cyclone-mocha-death-toll-loss-of-life-intl-hnk/index.html" target="_blank" rel="noopener">https://www.cnn.com/2023/05/16/asia/cyclone-mocha-death-toll-loss-of-life-intl-hnk/index.html</a></p><p class="reference-note">Used for Cyclone Giri’s deaths and the destruction of Kyaukphyu.</p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-11" data-num="11" data-pages="history prepare"><div class="reference-body"><p class="reference-citation">NASA Earth Observatory. (2008a). <em>Cyclone Nargis floods Burma (Myanmar)</em>. <a href="https://www.naturalhazards.nasa.gov/images/19880/cyclone-nargis-floods-burma-myanmar" target="_blank" rel="noopener">https://www.naturalhazards.nasa.gov/images/19880/cyclone-nargis-floods-burma-myanmar</a></p><p class="reference-note">Used for the 90–95% of buildings destroyed, as reported by the UN Office for the Coordination of Humanitarian Affairs. The satellite image itself is not reproduced here because it is copyrighted.</p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-12" data-num="12" data-pages="history"><div class="reference-body"><p class="reference-citation">NASA Earth Observatory. (2008b). <em>Cyclone Nargis</em>. <a href="https://earthobservatory.nasa.gov/images/8711/cyclone-nargis" target="_blank" rel="noopener">https://earthobservatory.nasa.gov/images/8711/cyclone-nargis</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-13" data-num="13" data-pages="cyclones prepare"><div class="reference-body" id="nhc-preparedness-reference"><p class="reference-citation">National Hurricane Center. (n.d.). <em>Hurricane preparedness</em>. National Oceanic and Atmospheric Administration. <a href="https://www.nhc.noaa.gov/prepare/" target="_blank" rel="noopener">https://www.nhc.noaa.gov/prepare/</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-14" data-num="14" data-pages="cyclones warnings"><div class="reference-body" id="nhc-hazards-reference"><p class="reference-citation">National Hurricane Center. (n.d.). <em>Hurricane preparedness: Hazards</em>. National Oceanic and Atmospheric Administration. <a href="https://www.nhc.noaa.gov/prepare/hazards.php" target="_blank" rel="noopener">https://www.nhc.noaa.gov/prepare/hazards.php</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-15" data-num="15" data-pages="cyclones warnings"><div class="reference-body" id="nhc-wind-reference"><p class="reference-citation">National Hurricane Center. (n.d.). <em>Saffir-Simpson hurricane wind scale</em>. National Oceanic and Atmospheric Administration. <a href="https://www.nhc.noaa.gov/aboutsshws.php" target="_blank" rel="noopener">https://www.nhc.noaa.gov/aboutsshws.php</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-16" data-num="16" data-pages="cyclones"><div class="reference-body"><p class="reference-citation">National Ocean Service. (2026, September 23). <em>What is the difference between a hurricane and a typhoon?</em> National Oceanic and Atmospheric Administration. <a href="https://oceanservice.noaa.gov/facts/cyclone.html" target="_blank" rel="noopener">https://oceanservice.noaa.gov/facts/cyclone.html</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-17" data-num="17" data-pages="cyclones"><div class="reference-body"><p class="reference-citation">National Weather Service. (n.d.). <em>Turn around, don’t drown</em>. National Oceanic and Atmospheric Administration. <a href="https://weather.gov/shv/awarenessweek_flood_tadd" target="_blank" rel="noopener">https://weather.gov/shv/awarenessweek_flood_tadd</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-18" data-num="18" data-pages="home history cyclones"><div class="reference-body"><p class="reference-citation">Tripartite Core Group. (2008, July). <em>Post-Nargis joint assessment</em>. Association of Southeast Asian Nations. <a href="https://www.asean.org/wp-content/uploads/images/archive/21765.pdf" target="_blank" rel="noopener">https://www.asean.org/wp-content/uploads/images/archive/21765.pdf</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-19" data-num="19" data-pages="home cyclones"><div class="reference-body"><p class="reference-citation">Webster, P. J. (2008). Myanmar’s deadly daffodil. <em>Nature Geoscience, 1</em>(8), 488–490. <a href="https://doi.org/10.1038/ngeo257" target="_blank" rel="noopener">https://doi.org/10.1038/ngeo257</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-20" data-num="20" data-pages="history"><div class="reference-body"><p class="reference-citation">Wikipedia contributors. (n.d.-a). <em>1968 Burma cyclone</em>. Wikipedia. <a href="https://en.wikipedia.org/wiki/1968_Burma_cyclone" target="_blank" rel="noopener">https://en.wikipedia.org/wiki/1968_Burma_cyclone</a></p><p class="reference-note">Death tolls differ between accounts. This page gives a range.</p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-21" data-num="21" data-pages="history"><div class="reference-body"><p class="reference-citation">Wikipedia contributors. (n.d.-b). <em>Cyclone Mocha</em>. Wikipedia. <a href="https://en.wikipedia.org/wiki/Cyclone_Mocha" target="_blank" rel="noopener">https://en.wikipedia.org/wiki/Cyclone_Mocha</a></p><p class="reference-note">Includes the ASEAN and National Unity Government death tolls.</p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-22" data-num="22" data-pages="history"><div class="reference-body"><p class="reference-citation">Wikipedia contributors. (n.d.-c). <em>Tropical cyclones in Myanmar</em>. Wikipedia. <a href="https://en.wikipedia.org/wiki/Tropical_cyclones_in_Myanmar" target="_blank" rel="noopener">https://en.wikipedia.org/wiki/Tropical_cyclones_in_Myanmar</a></p><p class="reference-note">Used as a starting point for Mala, Giri and the earlier storms. Wikipedia is not a primary source, so check the original reports.</p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+        <li class="reference-item" data-reference id="ref-23" data-num="23" data-pages="cyclones"><div class="reference-body"><p class="reference-citation">Zhao, C. (2024, December 30). <em>How do hurricanes form?</em> NOVA Next, PBS. <a href="https://www.pbs.org/wgbh/nova/article/how-do-hurricanes-form/" target="_blank" rel="noopener">https://www.pbs.org/wgbh/nova/article/how-do-hurricanes-form/</a></p></div><button class="copy-citation" type="button" data-copy-citation>Copy citation</button></li>
+      </ol>
+      <p class="empty-state references-empty" id="references-empty" hidden>No references match this page.</p><p class="source-line">Use the page links in each entry to follow how a source is applied. A citation is a starting point for reading, not a substitute for the original document.</p>
+    </section>
+
+    
+  <section class="block container image-credits" aria-labelledby="credits-title"><div class="reference-toolbar"><div><p class="section-index">02 <span>/</span> IMAGE CREDITS</p><h2 id="credits-title">Images</h2><p>All images on this site are satellite views of Cyclone Nargis, loaded from Wikimedia Commons. Each one links to its original file page.</p></div></div><div class="photo-grid"><figure class="photo" data-reveal><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Cyclone_Nargis_seen_by_Envisat.jpg?width=800" alt="Radar-satellite view of Cyclone Nargis from the Envisat satellite, showing the storm's spiral cloud bands over the Bay of Bengal and the coast of Myanmar." width="800" height="1293" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('figure').classList.add('is-missing')"><figcaption><span class="photo-title">Nargis seen from the Envisat satellite</span><span class="photo-credit">ESA, May 2008. CC BY-SA 3.0 IGO. <a href="https://commons.wikimedia.org/wiki/File:Cyclone_Nargis_seen_by_Envisat.jpg" target="_blank" rel="noopener">Original file</a></span></figcaption></figure></div><ol class="credit-list"><li id="ref-24" data-pages="home history cyclones warnings prepare"><span class="credit-num">24</span><span><strong>The Ayeyarwady Delta before and after Nargis.</strong> NASA Earth Observatory / MODIS Rapid Response Team, 15 April and 5 May 2008. Public domain. <a href="https://commons.wikimedia.org/wiki/File:Cyclone_Nargis_flooding_before-and-after.jpg" target="_blank" rel="noopener">Original file</a></span></li><li id="ref-25" data-pages="home history cyclones prepare calculator"><span class="credit-num">25</span><span><strong>Nargis a few hours before landfall, 2 May 2008.</strong> NASA / MODIS Rapid Response Team (Terra satellite). Public domain. <a href="https://commons.wikimedia.org/wiki/File:Nargis_2008-05-02_0645Z.jpg" target="_blank" rel="noopener">Original file</a></span></li><li id="ref-26" data-pages="history warnings"><span class="credit-num">26</span><span><strong>Nargis seen from the Envisat satellite.</strong> ESA, May 2008. CC BY-SA 3.0 IGO. <a href="https://commons.wikimedia.org/wiki/File:Cyclone_Nargis_seen_by_Envisat.jpg" target="_blank" rel="noopener">Original file</a></span></li></ol></section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-side">
+        <a class="brand" href="index.html">
+          <img src="images/logo.svg" alt="" width="36" height="36">
+          <span class="brand-wordmark" aria-hidden="true">Before Landfa//</span>
+          <span class="visually-hidden">Before Landfall</span>
+        </a>
+        <div class="footer-meta">
+          <p class="footer-copy">© 2026 Before Landfall. All rights reserved.</p>
+          <div class="footer-settings">
+            <fieldset class="theme-switch" id="theme-switch" hidden>
+              <legend class="visually-hidden">Colour theme</legend>
+              <span class="theme-thumb" aria-hidden="true"></span>
+              <span class="theme-option">
+                <input type="radio" name="theme" id="theme-system" value="system" checked>
+                <label for="theme-system" title="System">
+                  <span class="visually-hidden">System</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2.5"/><path d="M8 20h8M12 16v4"/></svg>
+                </label>
+              </span>
+              <span class="theme-option">
+                <input type="radio" name="theme" id="theme-light" value="light">
+                <label for="theme-light" title="Light">
+                  <span class="visually-hidden">Light</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+                </label>
+              </span>
+              <span class="theme-option">
+                <input type="radio" name="theme" id="theme-dark" value="dark">
+                <label for="theme-dark" title="Dark">
+                  <span class="visually-hidden">Dark</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+                </label>
+              </span>
+            </fieldset>
+            <button type="button" class="sound-toggle" id="sound-toggle" aria-pressed="true" title="Sound on" hidden>
+              <span class="visually-hidden">Interface sounds</span>
+              <svg class="sound-icon-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+              <svg class="sound-icon-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <nav class="footer-nav" aria-label="Footer">
+        <ul class="footer-links">
+          <li><a href="index.html"><span>Home</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a href="cyclones.html"><span>Cyclones</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a href="history.html"><span>History</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a href="calculator.html"><span>Calculator</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a href="warnings.html"><span>Warnings</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a href="prepare.html"><span>Prepare</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a href="sources.html" aria-current="page"><span>Sources</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        </ul>
+      </nav>
+
+      <aside class="footer-guidance" aria-labelledby="footer-guidance-title">
+        <p class="footer-kicker">WHEN CONDITIONS CHANGE</p>
+        <h2 id="footer-guidance-title">Check official updates.</h2>
+        <p>The calculator and time bands on this site are for classroom learning. Follow current forecasts and local evacuation directions.</p>
+        <a href="warnings.html">Warning sources and next steps <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </aside>
+    </div>
+  </footer>
+
+  <!-- Libraries (local copies in lib/), then the site's own scripts. All deferred, so they run in this order. -->
+  <script src="lib/lisse.js" defer></script>
+  <script src="lib/rolltext.min.js" defer></script>
+  <script src="lib/gsap.min.js" defer></script>
+  <script src="lib/ScrollTrigger.min.js" defer></script>
+  <script src="lib/SplitText.min.js" defer></script>
+  <script src="sound.js" defer></script>
+  <script src="script.js" defer></script>
+  <script src="motion.js" defer></script>
+</body>
+</html>

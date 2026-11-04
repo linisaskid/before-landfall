@@ -1,0 +1,50 @@
+/* ==========================================================================
+   Motion layer (motion.js). Everything here is removable: delete motion.css,
+   motion.js, the lib/gsap|ScrollTrigger|SplitText files and the matching
+   <script>/<link> tags, and the site behaves exactly as before.
+   ========================================================================== */
+
+/* Headings stay hidden for a moment until they are split into lines. If the
+   scripts fail, the failsafe animation reveals them after 2.5 seconds. */
+html.motion-pending :is(.hero-text h1, .support-hero-copy h1, .section-heading h2, .why-intro h2, .history-heading h2, .reference-toolbar h2, .next-step h2, .official-copy h2, #tools-title) {
+  visibility: hidden;
+  animation: motion-failsafe 0s 2.5s forwards;
+}
+@keyframes motion-failsafe { to { visibility: visible; } }
+
+/* Line masks from SplitText: leave room for descenders so letters are not clipped. */
+.motion-line-mask { padding-bottom: .14em; margin-bottom: -.14em; }
+
+/* Scroll progress bar. */
+.motion-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 40;
+  height: 3px;
+  background: linear-gradient(90deg, var(--c-alert), var(--sea) 55%, var(--c-prepare));
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  pointer-events: none;
+}
+
+/* WebGL cyclone behind the hero. The panel sits in its eye. */
+.hero { position: relative; isolation: isolate; }
+.hero-cyclone {
+  position: absolute;
+  z-index: -1;
+  inset: -56px 0 -40px 0;
+  width: 100%;
+  height: calc(100% + 96px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.2s ease-out;
+}
+.hero-cyclone.is-live { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  html.motion-pending :is(.hero-text h1, .support-hero-copy h1, .section-heading h2, .why-intro h2, .history-heading h2, .reference-toolbar h2, .next-step h2, .official-copy h2, #tools-title) { visibility: visible; animation: none; }
+  .motion-progress { display: none; }
+}
+@media print {
+  .motion-progress, .hero-cyclone { display: none !important; }
+}
