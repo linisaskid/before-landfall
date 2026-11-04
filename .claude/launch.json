@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "site", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "8123"], "port": 8123 },
+    { "name": "site-alt", "runtimeExecutable": "sh", "runtimeArgs": ["-c", "exec python3 -m http.server ${PORT:-8130}"], "port": 8130 }
+  ]
+}
