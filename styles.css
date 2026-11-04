@@ -1506,30 +1506,35 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 }
 
 /* Colours for the diagram */
-.svg-sea { fill: color-mix(in srgb, var(--c-alert) 38%, var(--surface)); }
-.stop-warm { stop-color: var(--c-prepare); stop-opacity: 0.55; }
+.svg-sea { fill: color-mix(in srgb, var(--c-alert) 32%, var(--surface)); }
+.stop-warm { stop-color: var(--c-prepare); stop-opacity: 0.6; }
 .stop-clear { stop-color: var(--c-prepare); stop-opacity: 0; }
 .svg-warm-sea { fill: url(#warm-sea); }
-.svg-heat path { fill: none; stroke: var(--c-prepare); stroke-width: 3.5; stroke-linecap: round; }
-.svg-arrow { fill: none; stroke-width: 6; stroke-linecap: round; }
+.svg-heat path { fill: none; stroke: var(--c-prepare); stroke-width: 3; stroke-linecap: round; }
+.svg-arrow { fill: none; stroke-width: 5; stroke-linecap: round; }
 .svg-arrow--warm { stroke: var(--c-prepare); }
 .svg-arrow--cool { stroke: var(--c-alert); }
+.svg-arrow--out { stroke: var(--ink-soft); }
 .m-warm { fill: var(--c-prepare); }
 .m-cool { fill: var(--c-alert); }
+.m-out { fill: var(--ink-soft); }
 .m-ink { fill: var(--ink); }
 .svg-cloud { fill: color-mix(in srgb, var(--ink) 20%, var(--surface)); }
 .svg-low circle { fill: var(--ink); }
-.svg-low text { fill: var(--surface); font: 800 22px var(--sans); }
-.svg-eye { fill: var(--surface); stroke: var(--ink-soft); stroke-width: 2; stroke-dasharray: 6 6; }
-.svg-eye-label { fill: var(--ink); font: 700 22px var(--sans); }
-.svg-arms path { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.svg-low text { fill: var(--surface); font: 800 20px var(--sans); }
+/* The eye is cut out of the cloud with the figure's own background */
+.svg-eye { fill: var(--surface); }
+.svg-eye-edge { fill: none; stroke: var(--ink-soft); stroke-width: 2; stroke-dasharray: 5 6; stroke-linecap: round; }
+.svg-eye-label { fill: var(--ink); font: 700 18px var(--sans); }
+.svg-arms path { fill: none; stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
 .svg-eye-dot { fill: var(--ink); }
-.svg-spin { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+.svg-spin { fill: none; stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; }
+.svg-topview-label { fill: var(--ink-soft); font: 600 14px var(--sans); }
 
 /* Each step adds a layer; earlier layers fade back so the current step stands out.
+   Layers not reached yet stay hidden, so each step really reveals something new.
    With no JavaScript the diagram stays on step 4 (everything visible). */
-/* Layers that have not been reached yet show as a faint ghost, so the diagram never looks empty */
-.layer { opacity: 0.1; }
+.layer { opacity: 0; }
 .formation-svg[data-step="1"] .layer-1 { opacity: 1; }
 .formation-svg[data-step="2"] .layer-1 { opacity: 0.5; }
 .formation-svg[data-step="2"] .layer-2 { opacity: 1; }
