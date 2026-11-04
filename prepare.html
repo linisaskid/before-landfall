@@ -77,13 +77,11 @@
   <main id="main" class="page-main page-main--prepare">
     <header class="support-hero container support-hero--prepare">
       <div class="support-hero-copy" data-reveal>
-        <p class="eyebrow">Prepare <span class="eyebrow-divider">/</span> Household planning</p>
         <h1>Make the plan before you need it.</h1>
         <p class="lead">A few decisions made together can make a difficult moment clearer: where to go, how to get there and who needs extra help.</p>
         <div class="hero-actions"><a class="button" href="#plan-builder">Build your household plan <span aria-hidden="true">↓</span></a><a class="text-link" href="warnings.html">Check official warning sources</a></div>
       </div>
       <figure class="support-art support-art--prepare" aria-labelledby="plan-art-title" data-smooth data-reveal data-reveal-delay="1">
-        <div class="support-art-heading"><span>ROUTE NOTES</span><span>PLAN TOGETHER</span></div>
         <svg class="plan-diagram" viewBox="0 0 560 330" role="img" aria-labelledby="plan-art-title plan-art-description">
           <title id="plan-art-title">A route plan connecting home, a meeting point and a safe place</title>
           <desc id="plan-art-description">An abstract map shows a home, two possible routes and a marked safe meeting point. It is a planning illustration, not a local map.</desc>
@@ -121,7 +119,7 @@
 
     <section class="block container essentials-section" aria-labelledby="essentials-title">
       <div class="section-heading section-heading--numbered">
-        <div><p class="section-index">01 <span>/</span> START WITH THE ESSENTIALS</p><h2 id="essentials-title">Three things to agree together</h2></div>
+        <div><h2 id="essentials-title">Three things to agree together</h2></div>
         <p>Keep the plan practical. Make sure each person knows their part and where to find the supplies.</p>
       </div>
       <ol class="essentials-list">
@@ -133,31 +131,32 @@
 
     <section class="block container checklist-section" aria-labelledby="checklist-title">
       <div class="section-heading section-heading--numbered">
-        <div><p class="section-index">02 <span>/</span> WORK THROUGH THE LIST</p><h2 id="checklist-title">Small steps add up.</h2></div>
-        <p>Tick off what your household has agreed. Your progress is saved only in this browser on this device.</p>
+        <div><h2 id="checklist-title">Work through the checklist</h2></div>
+        <p>Tick off what your household has agreed, then write the details in your <a href="#plan-builder">household plan</a> below. Your progress is saved only in this browser on this device.</p>
       </div>
       <div class="prep-grid">
         <div class="checklist-panel" data-smooth>
-          <div class="progress-heading"><h3>Household readiness</h3><span id="checklist-count">0 of 6 done</span></div>
-          <progress id="checklist-progress" max="6" value="0" aria-label="Household checklist progress">0</progress>
+          <div class="progress-heading"><h3>Household readiness</h3><span id="checklist-count">0 of 7 done</span></div>
+          <progress id="checklist-progress" max="7" value="0" aria-label="Household checklist progress">0</progress>
           <ul class="checklist" id="household-checklist">
-            <li><label class="check-row"><input type="checkbox" data-check-item="warnings"><span><strong>Choose how to receive official updates</strong><small>Know where you will check forecasts and warnings.</small></span></label></li>
-            <li><label class="check-row"><input type="checkbox" data-check-item="shelter"><span><strong>Choose a safe place</strong><small>Confirm that it is open, accessible and suitable.</small></span></label></li>
-            <li><label class="check-row"><input type="checkbox" data-check-item="routes"><span><strong>Plan two routes</strong><small>Write down a main route and an alternative.</small></span></label></li>
-            <li><label class="check-row"><input type="checkbox" data-check-item="bag"><span><strong>Prepare essential supplies</strong><small>Include water, ready-to-eat food, a torch and a charged phone.</small></span></label></li>
-            <li><label class="check-row"><input type="checkbox" data-check-item="medicine"><span><strong>Plan for medicines and documents</strong><small>Keep essential medicine and important papers easy to take.</small></span></label></li>
+            <li><label class="check-row"><input type="checkbox" data-check-item="shelter"><span><strong>Choose a safe place on high ground</strong><small>A strong, raised building such as a cyclone shelter, away from where seawater can reach. Check that everyone can get there.</small></span></label></li>
+            <li><label class="check-row"><input type="checkbox" data-check-item="routes"><span><strong>Plan two routes</strong><small>A main route and a second way, in case a road or bridge floods.</small></span></label></li>
+            <li><label class="check-row"><input type="checkbox" data-check-item="leave"><span><strong>Agree when you will leave</strong><small>Decide which official warning means your household goes. Leave early rather than waiting to see the water rise.</small></span></label></li>
             <li><label class="check-row"><input type="checkbox" data-check-item="checkin"><span><strong>Agree a meeting place and contact</strong><small>Decide what to do if household members are apart.</small></span></label></li>
+            <li><label class="check-row"><input type="checkbox" data-check-item="bag"><span><strong>Prepare essential supplies</strong><small>Water, ready-to-eat food, a torch, a battery radio and a charged phone.</small></span></label></li>
+            <li><label class="check-row"><input type="checkbox" data-check-item="medicine"><span><strong>Pack medicines, documents and cash</strong><small>Keep them together in a waterproof bag that is easy to grab.</small></span></label></li>
+            <li><label class="check-row"><input type="checkbox" data-check-item="warnings"><span><strong>Choose how to receive official updates</strong><small>Know where you will check forecasts and warnings, including by radio if phones stop working.</small></span></label></li>
           </ul>
           <div class="form-actions"><button class="button button--quiet" id="reset-checklist" type="button">Reset checklist</button><p id="checklist-status" class="status-message" role="status"></p></div>
         </div>
         <aside class="support-note" aria-labelledby="support-note-title">
-          <p class="eyebrow">Look out for one another</p>
           <h3 id="support-note-title">Make the plan work for everyone.</h3>
           <ul class="bullet-list">
             <li>Ask older relatives, young children, pregnant people and people with disabilities what support they need.</li>
             <li>Agree who can help with transport, medicines and essential equipment.</li>
             <li>Check on neighbours who may be isolated. Share official updates, not rumours.</li>
             <li>Plan how children and animals will stay with the household when moving.</li>
+            <li>Bring boats in and secure them early, and agree where livestock will go.</li>
           </ul>
           <p class="support-note-footer">If the route or safe place changes, use the latest local directions.</p>
         </aside>
@@ -166,7 +165,7 @@
 
     <section class="block container water-section" aria-labelledby="kit-title">
       <div class="section-heading section-heading--numbered">
-        <div><p class="section-index">03 <span>/</span> ADJUST FOR YOUR HOUSEHOLD</p><h2 id="kit-title">Scale a water estimate</h2></div>
+        <div><h2 id="kit-title">Scale a water estimate</h2></div>
         <p>Multiply your own planning assumptions by the number of people and days.</p>
       </div>
       <div class="water-planner">
@@ -184,12 +183,12 @@
 
     <section class="block container plan-section" id="plan-builder" aria-labelledby="family-plan-title">
       <div class="section-heading section-heading--numbered">
-        <div><p class="section-index">04 <span>/</span> WRITE IT DOWN</p><h2 id="family-plan-title">Build a household plan</h2></div>
+        <div><h2 id="family-plan-title">Build a household plan</h2></div>
         <p>Use landmarks everyone recognizes. Keep a copy where your household can find it. Avoid identity numbers or other sensitive details.</p>
       </div>
       <div class="family-plan-layout">
         <form class="plan-editor" id="family-plan-form">
-          <div class="plan-editor-heading"><span class="plan-editor-step">1</span><div><p class="eyebrow">THE DETAILS</p><h3>Name your plan and places</h3></div></div>
+          <div class="plan-editor-heading"><span class="plan-editor-step">1</span><div><h3>Name your plan and places</h3></div></div>
           <div class="plan-details-grid">
             <div class="form-field"><label for="plan-name">Plan name</label><input id="plan-name" name="planName" type="text" maxlength="72" value="Our cyclone safety plan" placeholder="For example, Our family plan"></div>
             <div class="form-field"><label for="household-name">Household or group</label><input id="household-name" name="household" type="text" maxlength="72" placeholder="Add a household or group name"></div>
@@ -201,7 +200,7 @@
           </div>
 
           <div class="task-editor">
-            <div class="task-editor-heading"><div><span class="plan-editor-step">2</span><div><p class="eyebrow">WHO DOES WHAT</p><h3>Shared preparation tasks</h3></div></div><span class="task-count" id="plan-task-count" aria-live="polite">3 tasks</span></div>
+            <div class="task-editor-heading"><div><span class="plan-editor-step">2</span><div><h3>Shared preparation tasks</h3></div></div><span class="task-count" id="plan-task-count" aria-live="polite">3 tasks</span></div>
             <p class="task-editor-note">Add a task, a target date and the person who will take the lead.</p>
             <div class="plan-table-scroll">
               <table class="plan-table">
