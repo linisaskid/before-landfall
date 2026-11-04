@@ -77,44 +77,32 @@
   <main id="main" class="page-main page-main--calculator">
     <header class="support-hero container support-hero--calculator">
       <div class="support-hero-copy" data-reveal>
-        <p class="eyebrow">Calculator <span class="eyebrow-divider">/</span> Storm movement</p>
         <h1>How long until landfall?</h1>
         <p class="lead">A simple distance ÷ speed estimate shows how quickly the hours can pass. Use the storm’s forward movement, not its wind speed.</p>
         <p class="hero-equation"><span>distance</span><b aria-hidden="true">÷</b><span>forward speed</span><b aria-hidden="true">=</b><span>hours</span></p>
       </div>
       <figure class="support-art support-art--track" aria-labelledby="track-art-title" data-smooth data-reveal data-reveal-delay="1">
-        <div class="support-art-heading"><span>THE ROUTE</span><span>SCHEMATIC</span></div>
         <svg class="track-diagram" viewBox="0 0 560 330" role="img" aria-labelledby="track-art-title track-art-description">
           <title id="track-art-title">A cyclone centre moving toward a coastline</title>
           <desc id="track-art-description">A schematic, not-to-scale diagram shows the distance along a forecast path from a storm centre to a coast. It is not a map or forecast.</desc>
           <defs><clipPath id="calc-clip"><rect width="560" height="330" rx="24"/></clipPath></defs>
           <rect width="560" height="330" rx="24" fill="var(--surface)"/>
-          <g fill="none" stroke="var(--rule)" stroke-width="1">
-            <path d="M24 78H536M24 126H536M24 174H536M24 222H536M24 270H536"/>
-            <path d="M88 32V298M152 32V298M216 32V298M280 32V298M344 32V298" stroke-dasharray="2 7"/>
-          </g>
-          <g clip-path="url(#calc-clip)"><path d="M408 0C389 37 424 63 405 98C387 131 421 156 402 191C387 221 420 257 402 286C393 302 398 317 405 330H560V0Z" fill="var(--tint-prepare)"/></g>
-          <path d="M408 0C389 37 424 63 405 98C387 131 421 156 402 191C387 221 420 257 402 286C393 302 398 317 405 330" fill="none" stroke="var(--sea)" stroke-width="3"/>
-          <text x="30" y="44" fill="var(--ink-soft)" font-size="9" font-weight="700" letter-spacing="1.4">SEA</text>
-          <text x="530" y="44" text-anchor="end" fill="var(--ink-soft)" font-size="9" font-weight="700" letter-spacing="1.4">LAND</text>
-          <g transform="translate(110 205)">
-            <circle r="46" fill="var(--paper)" stroke="var(--sea)" stroke-opacity=".35" stroke-width="1.5"/>
-            <circle r="37" fill="none" stroke="var(--sea)" stroke-opacity=".5" stroke-width="1.5" stroke-dasharray="3 5"/>
+          <!-- Land, with a gently curving coast -->
+          <g clip-path="url(#calc-clip)"><path d="M414 0C398 62 426 112 406 170C388 224 418 282 408 330H560V0Z" fill="var(--tint-prepare)"/></g>
+          <path d="M414 0C398 62 426 112 406 170C388 224 418 282 408 330" fill="none" stroke="var(--sea)" stroke-width="2.5"/>
+          <!-- Storm centre -->
+          <g transform="translate(120 170)">
+            <circle r="46" fill="var(--paper)" stroke="var(--sea)" stroke-opacity=".3" stroke-width="1.5"/>
             <path d="M2.8 1.2 L3.2 0.8 L3.7 0.4 L4 -0.2 L4.3 -0.8 L4.5 -1.5 L4.5 -2.3 L4.4 -3.2 L4.1 -4 L3.7 -4.9 L3.1 -5.6 L2.4 -6.4 L1.5 -7 L0.5 -7.5 L-0.6 -7.8 L-1.8 -8 L-3.1 -7.9 L-4.4 -7.7 L-5.7 -7.2 L-6.9 -6.5 L-8.1 -5.7 L-9.2 -4.6 L-10.1 -3.3 L-10.8 -1.8 L-11.3 -0.3 L-11.5 1.4 L-11.5 3.2 L-11.2 5 L-10.7 6.8 L-9.9 8.5 L-8.7 10.1 L-7.4 11.5 L-5.7 12.8 L-3.9 13.8 L-1.9 14.6 L0.3 15.1 L2.5 15.2 L4.8 15 L7.1 14.4 L9.4 13.5 L11.5 12.3 L13.4 10.7 L15.1 8.8 L16.5 6.6 L17.7 4.2 L18.4 1.6 L18.8 -1.1 L18.8 -4 L18.3 -6.8 L17.4 -9.5 L16.1 -12.2 L14.4 -14.7 L12.3 -16.9 L9.9 -18.8 L7.1 -20.4 L4.2 -21.5 L1 -22.3 L-2.3 -22.5 L-5.7 -22.3 L-9 -21.5 L-12.2 -20.3 L-15.3 -18.5 L-18.1 -16.3 L-20.5 -13.7 L-22.6 -10.7 L-24.3 -7.4 L-25.4 -3.8 L-26.1 -0.1 L-26.1 3.8 L-25.6 7.7 L-24.6 11.5 L-22.9 15.1 L-20.7 18.6 L-18 21.6 L-14.8 24.3 L-11.2 26.6 L-7.3 28.2 L-3.1 29.4 L1.2 29.8 L5.6 29.7 L10 28.9 L14.3 27.4 L18.3 25.3 L22.1 22.6 L25.4 19.4 L28.3 15.6 L30.6 11.4 L32.2 6.9 L33.2 2.2 L33.5 -2.7 L33.1 -7.7" fill="none" stroke="var(--sea)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M-2.8 -1.2 L-3.2 -0.8 L-3.7 -0.4 L-4 0.2 L-4.3 0.8 L-4.5 1.5 L-4.5 2.3 L-4.4 3.2 L-4.1 4 L-3.7 4.9 L-3.1 5.6 L-2.4 6.4 L-1.5 7 L-0.5 7.5 L0.6 7.8 L1.8 8 L3.1 7.9 L4.4 7.7 L5.7 7.2 L6.9 6.5 L8.1 5.7 L9.2 4.6 L10.1 3.3 L10.8 1.8 L11.3 0.3 L11.5 -1.4 L11.5 -3.2 L11.2 -5 L10.7 -6.8 L9.9 -8.5 L8.7 -10.1 L7.4 -11.5 L5.7 -12.8 L3.9 -13.8 L1.9 -14.6 L-0.3 -15.1 L-2.5 -15.2 L-4.8 -15 L-7.1 -14.4 L-9.4 -13.5 L-11.5 -12.3 L-13.4 -10.7 L-15.1 -8.8 L-16.5 -6.6 L-17.7 -4.2 L-18.4 -1.6 L-18.8 1.1 L-18.8 4 L-18.3 6.8 L-17.4 9.5 L-16.1 12.2 L-14.4 14.7 L-12.3 16.9 L-9.9 18.8 L-7.1 20.4 L-4.2 21.5 L-1 22.3 L2.3 22.5 L5.7 22.3 L9 21.5 L12.2 20.3 L15.3 18.5 L18.1 16.3 L20.5 13.7 L22.6 10.7 L24.3 7.4 L25.4 3.8 L26.1 0.1 L26.1 -3.8 L25.6 -7.7 L24.6 -11.5 L22.9 -15.1 L20.7 -18.6 L18 -21.6 L14.8 -24.3 L11.2 -26.6 L7.3 -28.2 L3.1 -29.4 L-1.2 -29.8 L-5.6 -29.7 L-10 -28.9 L-14.3 -27.4 L-18.3 -25.3 L-22.1 -22.6 L-25.4 -19.4 L-28.3 -15.6 L-30.6 -11.4 L-32.2 -6.9 L-33.2 -2.2 L-33.5 2.7 L-33.1 7.7" fill="none" stroke="var(--sea)" stroke-opacity=".55" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
             <circle r="4" fill="var(--c-alert)"/>
           </g>
-          <g transform="translate(110 205) rotate(-12.9)">
-            <path d="M54 0H282" fill="none" stroke="var(--sea)" stroke-width="3" stroke-dasharray="7 9" stroke-linecap="round"/>
-            <path d="M270 -9L284 0L270 9" fill="none" stroke="var(--sea)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-            <text x="170" y="-14" text-anchor="middle" fill="var(--ink-soft)" font-size="9" font-weight="700" letter-spacing="1.25">ESTIMATED TRACK</text>
-            <path d="M0 70H299.6M0 63V77M299.6 63V77" stroke="var(--ink-soft)" stroke-width="1.4"/>
-            <path d="M0 50V63M299.6 12V63" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="2 4" opacity=".7"/>
-            <text x="149.8" y="90" text-anchor="middle" fill="var(--ink-soft)" font-size="10.5" letter-spacing="1.1">DISTANCE ALONG THE TRACK</text>
-          </g>
-          <circle cx="402" cy="138" r="7" fill="var(--c-prepare)" stroke="var(--paper)" stroke-width="3"/>
-          <text x="110" y="143" text-anchor="middle" fill="var(--ink)" font-size="10" font-weight="700" letter-spacing="1.4">STORM CENTRE</text>
-          <text x="424" y="124" fill="var(--ink)" font-size="10" font-weight="700" letter-spacing="1.4">COAST</text>
+          <!-- Track: the distance is measured along it -->
+          <path d="M182 170H384" fill="none" stroke="var(--sea)" stroke-width="3" stroke-dasharray="7 9" stroke-linecap="round"/>
+          <path d="M374 161L388 170L374 179" fill="none" stroke="var(--sea)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="406" cy="170" r="7" fill="var(--c-prepare)" stroke="var(--paper)" stroke-width="3"/>
+          <text x="283" y="152" text-anchor="middle" fill="var(--ink-soft)" font-size="10" font-weight="700" letter-spacing="1.3">DISTANCE ALONG THE TRACK</text>
+          <text x="120" y="244" text-anchor="middle" fill="var(--ink)" font-size="10" font-weight="700" letter-spacing="1.4">STORM CENTRE</text>
+          <text x="428" y="198" fill="var(--ink)" font-size="10" font-weight="700" letter-spacing="1.4">COAST</text>
 </svg>
         <figcaption><span>Distance follows the storm’s direction of travel.</span><span>Not to scale</span></figcaption>
       </figure>
@@ -122,7 +110,7 @@
 
     <section class="block container calculator-section" aria-labelledby="calculator-title">
       <div class="section-heading section-heading--numbered">
-        <div><p class="section-index">01 <span>/</span> TRY THE MODEL</p><h2 id="calculator-title">Put in the latest estimate</h2></div>
+        <div><h2 id="calculator-title">Put in the latest estimate</h2></div>
         <p>Use figures from a current official forecast. If you’re learning how the formula works, start with one of the examples.</p>
       </div>
 
@@ -145,7 +133,7 @@
             <button class="button form-submit" type="submit">Estimate time <span aria-hidden="true">→</span></button>
           </form>
           <div class="example-picker" role="group" aria-labelledby="example-title">
-            <div class="example-picker-heading"><span class="section-index">WORKED EXAMPLES</span><h3 id="example-title">Try the calculation</h3></div>
+            <div class="example-picker-heading"><h3 id="example-title">Try a worked example</h3></div>
             <div class="example-buttons">
               <button class="example-button" type="button" data-example-distance="120" data-example-speed="30"><span>120 ÷ 30</span><small>4 hours</small></button>
               <button class="example-button" type="button" data-example-distance="600" data-example-speed="30"><span>600 ÷ 30</span><small>20 hours</small></button>
@@ -164,7 +152,6 @@
             <div class="stage-ribbon" role="group" aria-label="Example learning bands"><span class="stage-ribbon--alert">Over 24 h</span><span class="stage-ribbon--prepare">6–24 h</span><span class="stage-ribbon--evacuate">Under 6 h</span></div>
           </div>
           <section class="result-card" id="calculator-result" data-stage="prepare" aria-labelledby="result-title" hidden>
-            <p class="eyebrow">ESTIMATE</p>
             <h2 id="result-title">Time until landfall</h2>
             <p class="result-number"><roll-text class="result-hours" id="result-hours">—</roll-text><span>hours</span></p>
             <div class="result-gauge" aria-hidden="true">
@@ -188,7 +175,7 @@
 
     <section class="block container method-section" aria-labelledby="method-title">
       <div class="section-heading section-heading--numbered">
-        <div><p class="section-index">02 <span>/</span> THE METHOD</p><h2 id="method-title">Three steps, one simple equation</h2></div>
+        <div><h2 id="method-title">Three steps, one simple equation</h2></div>
         <p>Time in hours = distance in kilometres ÷ forward speed in kilometres per hour.</p>
       </div>
       <ol class="method-grid">
@@ -201,7 +188,7 @@
 
     <section class="block container history-section" aria-labelledby="history-title">
       <div class="history-heading">
-        <div><p class="section-index">03 <span>/</span> ON THIS DEVICE</p><h2 id="history-title">Recent estimates</h2><p>Up to five calculations are stored in this browser.</p></div>
+        <div><h2 id="history-title">Recent estimates</h2><p>Up to five calculations are stored in this browser.</p></div>
         <button class="button button--quiet" id="clear-history" type="button" hidden>Clear history</button>
       </div>
       <p class="empty-state" id="history-empty">No estimates saved yet.</p>

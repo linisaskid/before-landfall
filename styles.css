@@ -180,7 +180,6 @@
   --tint-prepare: #fbe8c0;
   --tint-alert: #d9eeee;
 
-  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
   --sans: "Fall Sans", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --display: "Fall Sans Display", "Fall Sans", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 
@@ -287,7 +286,7 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 1.125rem;
   line-height: 1.6;
 }
@@ -719,7 +718,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   max-width: 33rem;
   margin-top: 1.5rem;
   color: var(--ink-soft);
-  font-size: 1.25rem;
+  font-size: clamp(1.125rem, 1rem + .5vw, 1.25rem);
   line-height: 1.55;
 }
 
@@ -1012,8 +1011,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 .stage-advice {
   min-height: 4.8em;
   margin-top: 0.5rem;
-  font-family: var(--serif);
-  font-size: 1.05rem;
+  font-size: var(--text-md);
   line-height: 1.55;
 }
 
@@ -1043,7 +1041,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 @media (min-width: 56rem) {
   .why-intro {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-    align-items: start;
+    align-items: baseline;
   }
 }
 
@@ -1059,7 +1057,6 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 
 .why-intro p {
   max-width: 38rem;
-  font-size: 1.15rem;
 }
 
 .figures {
@@ -1092,6 +1089,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 
 .figures .figure-note {
   max-width: 24ch;
+  font-family: var(--sans);
   margin-top: 0.4rem;
   color: var(--ink-soft);
   font-size: 0.875rem;
@@ -1171,7 +1169,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 .tool-desc {
   grid-area: desc;
   color: var(--ink-soft);
-  font-size: 1.05rem;
+  font-size: var(--text-md);
 }
 
 .tool-preview {
@@ -1625,8 +1623,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 
 .step p {
   margin-top: 0.5rem;
-  font-family: var(--serif);
-  font-size: 1.1rem;
+  font-size: var(--text-md);
   line-height: 1.55;
 }
 
@@ -1641,7 +1638,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   max-width: 40rem;
   margin-top: 2.25rem;
   color: var(--ink-soft);
-  font-size: 1.05rem;
+  font-size: var(--text-md);
 }
 
 .fact-callout {
@@ -1711,7 +1708,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 .hazards p {
   margin-top: 0.5rem;
   color: var(--ink-soft);
-  font-size: 1.05rem;
+  font-size: var(--text-md);
   line-height: 1.55;
 }
 
@@ -1860,8 +1857,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   min-height: 5.4em;
   max-width: 40rem;
   margin-top: 0.9rem;
-  font-family: var(--serif);
-  font-size: 1.1rem;
+  font-size: var(--text-md);
   line-height: 1.55;
 }
 
@@ -2018,7 +2014,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 
 .row-desc {
   color: var(--ink-soft);
-  font-size: 1.05rem;
+  font-size: var(--text-md);
 }
 
 /* ---------- Motion (only when the visitor has not asked for less) ---------- */
@@ -2062,7 +2058,6 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 .support-hero-copy { min-width: 0; }
 .support-hero-copy h1 {
   max-width: 13ch;
-  margin-top: .65rem;
   font-family: var(--display);
   font-size: clamp(2.6rem, 1.25rem + 4.8vw, 4.4rem);
   font-weight: 700;
@@ -2073,11 +2068,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 .support-hero-copy .lead {
   max-width: 38rem;
   margin-top: 1.25rem;
-  color: var(--ink-soft);
-  font-size: clamp(1.1rem, .92rem + .6vw, 1.28rem);
-  line-height: 1.55;
 }
-.eyebrow-divider { padding-inline: .3em; color: var(--ink-soft); }
 .hero-equation {
   display: flex;
   flex-wrap: wrap;
@@ -2090,6 +2081,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   color: var(--ink-soft);
   font: 700 .75rem/1.4 var(--sans);
   letter-spacing: .1em;
+  text-transform: uppercase;
 }
 .hero-equation b { color: var(--sea); font-size: 1rem; }
 .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .85rem 1.5rem; margin-top: 1.8rem; font-family: var(--sans); }
@@ -2103,21 +2095,13 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   background: var(--surface);
   box-shadow: 0 18px 50px color-mix(in srgb, var(--ink) 7%, transparent);
 }
-.support-art-heading, .support-art figcaption {
+.support-art figcaption {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   font-family: var(--sans);
 }
-.support-art-heading {
-  padding: .6rem .75rem .2rem;
-  color: var(--ink-soft);
-  font-size: .7rem;
-  font-weight: 700;
-  letter-spacing: .13em;
-}
-.support-art-heading span:last-child { color: var(--sea); }
 .support-art svg { display: block; width: 100%; height: auto; }
 .support-art figcaption {
   padding: .2rem .75rem .6rem;
@@ -2125,7 +2109,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   font-size: .78rem;
   line-height: 1.4;
 }
-.support-art figcaption span:last-child { white-space: nowrap; font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; }
+.support-art figcaption span:last-child { white-space: nowrap; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
 
 .block {
   padding-block: clamp(3rem, 6vw, 4.5rem);
@@ -2138,7 +2122,9 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   margin-bottom: 1.75rem;
 }
 @media (min-width: 56rem) {
-  .section-heading, .reference-toolbar { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: end; }
+  .section-heading, .reference-toolbar { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+  .section-heading { align-items: baseline; }
+  .reference-toolbar { align-items: end; }
 }
 .section-heading h2, .reference-toolbar h2, .next-step h2 {
   font-family: var(--display);
@@ -2148,20 +2134,10 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   letter-spacing: -.018em;
   text-wrap: balance;
 }
-.section-heading > p, .reference-toolbar > div:first-child > p:not(.section-index) {
+.section-heading > p, .reference-toolbar > div:first-child > p {
   max-width: 43rem;
   color: var(--ink-soft);
-  font-size: 1.08rem;
-  line-height: 1.5;
 }
-.section-heading--numbered { align-items: end; }
-.section-index {
-  margin-bottom: .55rem;
-  color: var(--sea);
-  font: 700 .72rem/1.3 var(--sans);
-  letter-spacing: .13em;
-}
-.section-index span { color: var(--ink-soft); }
 .form-field { display: grid; gap: var(--space-1); min-width: 0; font-family: var(--sans); }
 .form-field label { color: var(--ink); font-size: var(--text-sm); font-weight: var(--weight-medium); line-height: 1.35; }
 .form-field input, .form-field select, .form-field textarea {
@@ -2241,7 +2217,6 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .form-error { padding: var(--space-2); border-left: 4px solid var(--c-evacuate); border-radius: var(--radius) var(--radius) var(--radius) var(--radius); background: color-mix(in srgb, var(--c-evacuate) 13%, var(--paper)); color: var(--ink); font: var(--text-sm)/1.45 var(--sans); }
 .example-picker { margin-top: var(--inset); padding-top: var(--space-2); border-top: 1px solid var(--rule); }
 .example-picker-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-half) var(--space-2); }
-.example-picker-heading .section-index { margin: 0; font-size: var(--text-sm); }
 .example-picker h3 { font: var(--weight-bold) var(--text-md) var(--display); }
 .example-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1); margin-top: var(--space-2); }
 .example-button {
@@ -2340,9 +2315,9 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .timeline-number--evacuate { background: var(--c-evacuate); color: var(--on-evacuate); }
 .timeline-label { min-width: 0; }
 .timeline-label small { display: block; margin-top: .12rem; color: var(--ink-soft); font-size: .7rem; font-weight: 400; line-height: 1.3; }
-.stage-explorer { display: grid; gap: .55rem; }
-.stage-detail { overflow: hidden; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: color-mix(in srgb, var(--surface) 58%, transparent); }
-.stage-detail + .stage-detail { border-top: 0; }
+.stage-explorer { display: grid; gap: .6rem; }
+/* Full rounded panels, matching the timeline buttons above them. */
+.stage-detail { overflow: hidden; border: 1px solid var(--rule); border-radius: 15px; background: color-mix(in srgb, var(--surface) 58%, transparent); }
 .stage-detail summary { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.1rem; cursor: pointer; list-style: none; font-family: var(--sans); }
 .stage-detail summary::-webkit-details-marker { display: none; }
 .stage-detail summary::after { content: "+"; margin-left: auto; color: var(--ink-soft); font-size: 1.35rem; line-height: 1; }
@@ -2374,7 +2349,7 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .official-mark svg { width: 52%; height: auto; }
 .official-copy { position: relative; z-index: 1; max-width: 47rem; }
 .official-copy h2 { font: 700 clamp(1.7rem, 1.2rem + 1.5vw, 2.25rem)/1.12 var(--display); }
-.official-copy > p:not(.eyebrow) { margin-top: .55rem; color: var(--ink-soft); font-size: 1.04rem; line-height: 1.5; }
+.official-copy > p:not(.eyebrow) { margin-top: .55rem; color: var(--ink-soft); }
 .official-copy .hero-actions { margin-top: 1rem; }
 .official-stamp { display: none; }
 @media (min-width: 60rem) {
@@ -2396,7 +2371,7 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .myth-label { display: flex; justify-content: space-between; align-items: baseline; gap: .8rem; color: var(--ink-soft); font: 700 .72rem var(--sans); letter-spacing: .1em; }
 .myth-label span { color: var(--sea); }
 .myth-list h3 { font: 700 1.18rem/1.25 var(--display); }
-.myth-list .fact-label { margin-top: .7rem; color: var(--sea); font: 700 .68rem var(--sans); letter-spacing: .12em; }
+.myth-list .fact-label { margin-top: .7rem; color: var(--sea); font: 700 .72rem var(--sans); letter-spacing: .12em; }
 .myth-list article > div > p:last-child { margin-top: .15rem; color: var(--ink-soft); }
 .next-step { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.25rem 2rem; padding: clamp(1.4rem, 4vw, 2.6rem); border-radius: 25px; background: var(--surface); }
 .next-step > div { max-width: 39rem; }
@@ -2547,7 +2522,7 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .reference-citation a { font: .82rem/1.4 var(--sans); }
 .reference-note { margin-top: .4rem; color: var(--ink-soft); font: .82rem/1.45 var(--sans); }
 .reference-pages { grid-area: pages; display: flex; flex-wrap: wrap; gap: .35rem; margin: .3rem 0 0; padding: 0; list-style: none; }
-.reference-pages li { padding: .2rem .5rem; border: 1px solid var(--rule); border-radius: 999px; color: var(--ink-soft); font: 650 .65rem var(--sans); }
+.reference-pages li { padding: .2rem .5rem; border: 1px solid var(--rule); border-radius: 999px; color: var(--ink-soft); font: 650 .75rem var(--sans); }
 .copy-citation { grid-area: copy; min-width: 7rem; padding: .5rem .65rem; border: 1px solid var(--rule); border-radius: 9px; background: var(--surface); color: var(--ink); font: 650 .76rem var(--sans); cursor: pointer; }
 .copy-citation:hover { border-color: var(--sea); }
 .references-empty { margin-top: 1rem; }
@@ -2843,6 +2818,12 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 
 .photo-section .photo-grid { margin-top: 2rem; }
 .sub-title { font: var(--weight-bold, 700) clamp(1.3rem, 1rem + 1vw, 1.65rem)/1.2 var(--display); margin-top: 3rem; }
+/* A sub-heading that opens a two-column intro: space the whole row instead
+   of just the heading, so the paragraph beside it gets the same gap. */
+.why-intro > .sub-title:first-child { margin-top: 0; }
+.block > :is(.photo-grid, .figures, .why-intro) + .why-intro:has(> .sub-title) { margin-top: clamp(3.5rem, 2.5rem + 3vw, 5rem); }
+.block > .why-intro + .figures, .photo-grid + .figures { margin-top: 3.25rem; }
+.block > .why-intro + .photo-note { margin-top: 3.5rem; }
 .sub-title + p { margin-top: .5rem; }
 
 /* History timeline. Without script: a plain list of storms.
@@ -2857,7 +2838,7 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .tl-head h3 { margin-top: .2rem; font: 700 1.55rem/1.15 var(--display); letter-spacing: -.01em; }
 .tl-place { margin-top: .3rem; color: var(--ink-soft); font-size: var(--text-sm); }
 .tl-toll { display: inline-block; margin-top: 1rem; padding: .3rem .8rem; border-radius: 10px; border: 1.5px solid var(--c-evacuate); font-weight: 700; font-size: var(--text-sm); line-height: 1.35; }
-.tl-text { max-width: 38rem; font-size: 1.05rem; line-height: 1.65; }
+.tl-text { max-width: 38rem; font-size: var(--text-md); line-height: 1.6; }
 
 /* The track */
 .tl-track {
@@ -2928,8 +2909,9 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .credit-num { flex: none; width: 2.2rem; color: var(--sea); font: 700 .8rem var(--sans); letter-spacing: .08em; }
 
 /* The entry a footnote marker pointed to */
-.reference-item:target, .credit-list li:target {
-  background: color-mix(in srgb, var(--sea) 10%, transparent);
-  box-shadow: -.9rem 0 0 color-mix(in srgb, var(--sea) 10%, transparent), .9rem 0 0 color-mix(in srgb, var(--sea) 10%, transparent);
-}
-.cite-back { display: inline-block; margin-top: .55rem; color: var(--sea); font: 650 .8rem var(--sans); text-underline-offset: 3px; }
+/* Rows carry a small side inset so the highlight sits inside the hairlines
+   instead of spilling past them. */
+.reference-item, .credit-list li { padding-inline: .9rem; }
+.reference-item:target, .credit-list li:target { background: color-mix(in srgb, var(--sea) 10%, transparent); }
+/* Back link always gets its own line, even inside an inline credit entry. */
+.cite-back, .credit-list .cite-back { display: block; width: fit-content; margin-top: .55rem; color: var(--sea); font: 650 .8rem var(--sans); text-underline-offset: 3px; }
