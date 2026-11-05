@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Before Landfall tests</title>
+  <style>
+    :root { color-scheme: light dark; --pass: #17794a; --fail: #c62839; --ink: #10303f; --soft: #3f5f6c; --paper: #f3f7f6; }
+    @media (prefers-color-scheme: dark) { :root { --pass: #5fd394; --fail: #ff6b7a; --ink: #e6f0ef; --soft: #a7bec2; --paper: #0c1e27; } }
+    body { margin: 0; padding: 16px; background: var(--paper); color: var(--ink); font: 14px/1.45 system-ui, sans-serif; }
+    main { max-width: calc(50vw - 32px); }
+    h1 { margin: 0 0 4px; font-size: 1.25rem; }
+    #summary { margin: 0 0 12px; font-weight: 700; }
+    body[data-status="pass"] #summary { color: var(--pass); }
+    body[data-status="fail"] #summary { color: var(--fail); }
+    ol { margin: 0; padding: 0; list-style: none; }
+    li { padding: 3px 0; border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); }
+    .pass strong { color: var(--pass); font-weight: 500; }
+    .fail strong { color: var(--fail); }
+    small { color: var(--soft); }
+    pre { margin: 4px 0 6px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+    /* The page under test stays on screen: observers and animation frames pause for hidden frames. */
+    #stage { position: fixed; top: 12px; right: 12px; transform-origin: top right; outline: 1px solid var(--soft); background: #fff; }
+    #stage iframe { display: block; border: 0; }
+    @media (max-width: 700px) { main { max-width: none; } #stage { opacity: .9; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Before Landfall tests</h1>
+    <p id="summary" role="status">Loading…</p>
+    <ol id="results"></ol>
+  </main>
+  <div id="stage" aria-hidden="true"></div>
+  <script>
+    // Load the test files fresh each time: a simple local server lets the browser cache them,
+    // and a stale copy would test old code.
+    ["harness.js", "static-tests.js", "behaviour-tests.js"].reduce((ready, file) => ready.then(() => new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = file + "?t=" + Date.now();
+      script.onload = resolve;
+      script.onerror = () => reject(new Error("Could not load " + file));
+      document.body.append(script);
+    })), Promise.resolve()).then(() => window.Harness.run(), (error) => {
+      document.getElementById("summary").textContent = error.message;
+    });
+  </script>
+</body>
+</html>

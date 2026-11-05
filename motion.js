@@ -215,6 +215,7 @@
     };
     const pointer = { x: 0, y: 0, targetX: 0, targetY: 0 };
     let heroOnScreen = true;
+    let pixelRatio = 1; // canvas pixels per CSS pixel, capped at 1.5 to keep the shader cheap
 
     // Fainter in light mode and on small screens, where the storm sits behind text.
     function updateAlpha() {
@@ -234,7 +235,7 @@
 
     // Match the canvas to its CSS size and put the eye behind the centre of the panel.
     function layout() {
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const dpr = (pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5));
       const rect = canvas.getBoundingClientRect();
       const width = Math.max(1, Math.round(rect.width * dpr));
       const height = Math.max(1, Math.round(rect.height * dpr));
@@ -251,11 +252,11 @@
     }
 
     function draw() {
-      const dpr = window.devicePixelRatio || 1;
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.uniform2f(uniforms.uRes, canvas.width, canvas.height);
-      gl.uniform2f(uniforms.uEye, storm.eyeX + pointer.x * 14 * dpr, storm.eyeY - pointer.y * 10 * dpr);
+      // The pointer nudges the eye by up to 14 × 10 CSS pixels, converted to canvas pixels.
+      gl.uniform2f(uniforms.uEye, storm.eyeX + pointer.x * 14 * pixelRatio, storm.eyeY - pointer.y * 10 * pixelRatio);
       gl.uniform1f(uniforms.uEyeR, storm.eyeRadius);
       gl.uniform1f(uniforms.uTime, storm.time);
       gl.uniform3fv(uniforms.uColorA, storm.colorA);

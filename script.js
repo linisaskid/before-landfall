@@ -836,8 +836,15 @@
     const isValidSpeed = (value) => Number.isFinite(value) && value > 0 && value <= MAX_SPEED;
     const formatHours = (hours) => hours.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
+    let savedText = null;
     try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      savedText = localStorage.getItem(STORAGE_KEY);
+    } catch (storageError) {
+      storageAvailable = false;
+    }
+    // A damaged save is not a storage problem: it is skipped, and the next estimate replaces it.
+    try {
+      const saved = JSON.parse(savedText || "[]");
       if (Array.isArray(saved)) {
         estimates = saved.filter((item) =>
           item &&
@@ -848,9 +855,7 @@
           Number.isFinite(new Date(item.arrival).getTime())
         ).slice(0, MAX_SAVED);
       }
-    } catch (storageError) {
-      storageAvailable = false;
-    }
+    } catch (parseError) {}
 
     function renderEstimates() {
       estimateList.replaceChildren();
@@ -1581,6 +1586,7 @@
       const copyButton = reference.querySelector("[data-copy-citation]");
       if (!copyButton || reference.querySelector(".reference-pages")) return;
       const usedOn = pagesUsing(reference);
+      if (!Object.keys(PAGE_LABELS).some((page) => usedOn.includes(page))) return; // background reading: no empty list
       const tags = document.createElement("ul");
       tags.className = "reference-pages";
       tags.setAttribute("aria-label", "Pages using this source");
@@ -1694,7 +1700,10 @@
 
       const label = button.textContent;
       let resetTimer = 0;
-      button.setAttribute("aria-label", "Copy citation: " + citation.textContent.trim().split(".")[0]);
+      // Several sources share an author (three from the National Hurricane Center), so the
+      // reference number keeps each button's name distinct for screen reader users.
+      const number = Number(reference.dataset.num);
+      button.setAttribute("aria-label", label + " " + number + ": " + citation.textContent.trim().split(".")[0]);
 
       button.addEventListener("click", async () => {
         const copied = await copyText(citation.textContent.trim());
