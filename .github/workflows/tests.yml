@@ -1,0 +1,30 @@
+# Runs the browser test suite (tests/) in headless Chrome on every pull request and
+# on every push to main. Nothing here is part of the site: it runs only on GitHub's
+# machines, which already have Chrome and Python installed.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node 22 or newer has the built-in WebSocket that tests/ci.mjs uses.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Run the tests in headless Chrome
+        run: |
+          python3 -m http.server 8123 --bind 127.0.0.1 > server.log 2>&1 &
+          node tests/ci.mjs http://127.0.0.1:8123/tests/
