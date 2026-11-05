@@ -2381,7 +2381,7 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .next-step > div { max-width: 39rem; }
 .next-step h2 { margin-top: .4rem; }
 .next-step p:not(.eyebrow) { margin-top: .5rem; color: var(--ink-soft); }
-.next-step .button { display: inline-flex; align-items: center; gap: .7rem; white-space: nowrap; }
+.next-step .button { display: inline-flex; align-items: center; gap: .7rem; text-wrap: balance; }
 
 /* Preparation */
 .essentials-list { display: grid; gap: var(--inset); margin: 0; padding: 0; list-style: none; }
