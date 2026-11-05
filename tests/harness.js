@@ -4,6 +4,8 @@
  * Run the tests by serving the project folder and opening tests/index.html:
  *   python3 -m http.server 8123   ->   http://localhost:8123/tests/
  * Add ?grep=calculator to run only the tests whose name contains "calculator".
+ * On GitHub, .github/workflows/tests.yml runs the same page in headless Chrome
+ * through tests/ci.mjs on every pull request and every push to main.
  *
  * Static tests read the pages as text and parse them with DOMParser. Behaviour tests
  * load each page into an iframe (kept on screen, because IntersectionObserver and
