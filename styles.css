@@ -494,8 +494,8 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   --pill-line: #3a5966;
   color-scheme: dark;
 
-  margin-top: 3rem;
-  padding-block: 4.5rem 3.5rem;
+  margin-top: var(--space-6);
+  padding-block: var(--space-9) var(--space-7);
   border-top: 1px solid var(--rule);
   background: #0c1e27;
   color: var(--ink);
@@ -507,7 +507,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 .footer-inner {
   display: flex;
   flex-wrap: wrap;
-  gap: 3.5rem 4.5rem;
+  gap: var(--space-7) var(--space-9);
 }
 
 .footer-side {
@@ -515,7 +515,17 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 3rem;
+  gap: var(--space-6);
+}
+
+/* Three columns need 1040px of content width (18 + 22 + 16rem plus two gaps),
+   which the container reaches at 70rem. Below that, the brand column takes its
+   own row so the links and the guidance share the next one, instead of the
+   guidance wrapping alone under a stretched brand column. */
+@media (max-width: 70rem) {
+  .footer-side {
+    flex-basis: 100%;
+  }
 }
 
 .footer-side .brand {
@@ -524,12 +534,12 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 
 .footer-meta {
   display: grid;
-  gap: 1.25rem;
+  gap: var(--space-2);
 }
 
 .footer-copy {
   color: var(--ink-soft);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
 }
 
 .footer-copy a {
@@ -560,10 +570,18 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-block: 1.25rem;
+  padding-block: calc(var(--space-2) + var(--space-half));
   color: var(--ink-soft);
   font-size: 1.0625rem;
   text-decoration: none;
+}
+
+/* On phones the header already lists every page, so the footer rows can be
+   shorter. 12px padding keeps each row about 50px tall, above the 44px target. */
+@media (max-width: 42rem) {
+  .footer-links a {
+    padding-block: calc(var(--space-1) + var(--space-half));
+  }
 }
 
 .footer-links a:hover,
@@ -2532,10 +2550,10 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 
 /* Shared footer guidance */
 .footer-guidance { flex: 1 1 16rem; max-width: 24rem; align-self: flex-start; }
-.footer-kicker { margin-bottom: .6rem; color: var(--sea); font: 700 .75rem var(--sans); letter-spacing: .13em; text-transform: uppercase; }
+.footer-kicker { margin-bottom: var(--space-1); color: var(--sea); font: 700 .75rem var(--sans); letter-spacing: .13em; text-transform: uppercase; }
 .footer-guidance h2 { color: var(--ink); font: 700 1.3rem/1.15 var(--display); }
-.footer-guidance > p:not(.footer-kicker) { margin-top: .5rem; color: var(--ink-soft); font-size: .9rem; }
-.footer-guidance > a { display: inline-flex; align-items: center; justify-content: space-between; gap: 1.25rem; width: 100%; margin-top: 1.1rem; padding: .7rem 0; border-top: 1px solid var(--rule); color: var(--ink); font-size: .88rem; font-weight: 600; text-decoration: none; }
+.footer-guidance > p:not(.footer-kicker) { margin-top: var(--space-1); color: var(--ink-soft); font-size: var(--text-sm); }
+.footer-guidance > a { display: inline-flex; align-items: center; justify-content: space-between; gap: var(--space-2); width: 100%; margin-top: var(--space-2); padding: calc(var(--space-1) + var(--space-half)) 0; border-top: 1px solid var(--rule); color: var(--ink); font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none; }
 .footer-guidance > a:hover { color: var(--sea); }
 .footer-guidance svg { flex: none; }
 
