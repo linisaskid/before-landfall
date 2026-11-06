@@ -533,6 +533,7 @@
       if (user && isUnclaimed(user) && groupAdminFor(user)) {
         showFormError(loginError, "This admin account has no password yet. Register with your school email to set one up.");
         passwordInput.value = "";
+        sound("nudge");
         return;
       }
       // The same message for a wrong name or a wrong password, so the form does not
@@ -676,6 +677,7 @@
       }
       if (!logIn(user, document.getElementById("register-remember").checked)) {
         showFormError(registerError, "Your account is saved, but your browser is blocking storage, so you could not be logged in. Try the Log in form.");
+        sound("nudge");
         return;
       }
       showFormError(registerError, "");
