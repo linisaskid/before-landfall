@@ -3044,7 +3044,7 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .chip-button:hover { border-color: var(--sea); }
 .chip-button.is-on { border-color: var(--sea); background: var(--sea); color: var(--sea-ink); }
 .chip-button:focus-visible, .calendar-day:focus-visible, .calendar-nav:focus-visible, .calendar-today:focus-visible,
-.password-toggle:focus-visible, .event-jump:focus-visible, .post-replies summary:focus-visible, .post-title:focus-visible, #board-title:focus-visible {
+.event-jump:focus-visible, .post-replies summary:focus-visible, .post-title:focus-visible, #board-title:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
@@ -3062,7 +3062,12 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .password-field { display: flex; align-items: stretch; overflow: hidden; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper); }
 .password-field:has([aria-invalid="true"]) { border-color: var(--c-evacuate); }
 .form-field .password-field input { border: 0; border-radius: 0; background: transparent; }
-.form-field .password-field input:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+/* The box clips its corners, so an outline on the input itself would be cut off at the
+   rounded left end. The ring goes around the whole box instead, like the other fields;
+   the Show button gets an inset ring that follows its rounded right end. */
+.form-field .password-field input:focus-visible { outline: none; }
+.password-field:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 3px; }
+.password-toggle:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; border-radius: 0 var(--radius) var(--radius) 0; }
 .password-toggle { flex: none; padding: 0 var(--space-2); border: 0; border-left: 1px solid var(--rule); background: transparent; color: var(--sea); font: var(--weight-medium) var(--text-sm) var(--sans); cursor: pointer; }
 .password-strength { display: flex; align-items: center; gap: var(--space-1); color: var(--ink-soft); font: var(--text-sm)/1.4 var(--sans); }
 .strength-bar { flex: 0 0 6rem; height: 6px; overflow: hidden; border-radius: var(--radius-pill); background: var(--rule); }
@@ -3072,6 +3077,10 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .password-strength[data-level="strong"] .strength-bar span { width: 100%; background: var(--sea); }
 .strength-word { color: var(--ink); font-weight: var(--weight-medium); }
 .account-card .check-row { padding-block: var(--space-1); }
+/* These rows borrow the Prepare checklist's look, but a ticked box here is a choice,
+   not a finished task, so it is not crossed out or dimmed. */
+.account-card .check-row input:checked + span { color: var(--ink); }
+.account-card .check-row input:checked + span strong { text-decoration: none; }
 
 /* --- Community page: who is here --------------------------------------------- */
 .community-session {
