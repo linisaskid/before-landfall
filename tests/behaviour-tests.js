@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const { PAGES, test, assert, openPage, nextLoad, errorsIn, fire, setValue, key, sleep, frames, random } = window.Harness;
+  const { PAGES, test, assert, getText, openPage, nextLoad, errorsIn, fire, setValue, key, sleep, frames, random } = window.Harness;
 
   const WIDTHS = [320, 390, 768, 1024, 1440];
   const STAGE_NAMES = { evacuate: "Evacuate now", prepare: "Prepare to leave", alert: "Stay alert" };
@@ -212,6 +212,63 @@
     store("sound", "off");
     const muted = await openPage("index.html");
     assert.equal(muted.$("#sound-toggle").getAttribute("aria-pressed"), "false", "a saved 'off' is remembered");
+  });
+
+  test("site: every sound is as loud the first time as later, everyday sounds stay below rare ones, and nothing clips", async () => {
+    // Render the real sound.js offline and measure each sound's peak in dBFS. Every render gets
+    // its own copy of sound.js in a blank frame, and the same seeded Math.random, so a sound
+    // played at the start and one played a second later should match sample for sample.
+    const source = await getText("sound.js");
+    const page = await openPage("index.html", { transform: () => "<!DOCTYPE html><html><head><title>Sound levels</title></head><body></body></html>" });
+    const win = page.win;
+    async function peakOf(plays, seconds) {
+      let seed = 1;
+      win.Math.random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+      let ctx = null;
+      win.AudioContext = function () { ctx = new win.OfflineAudioContext(1, Math.round(48000 * seconds), 48000); return ctx; };
+      win.localStorage.removeItem("sound");
+      win.eval(source);
+      win.dispatchEvent(new win.PointerEvent("pointerdown")); // creates the context, as a visitor's first tap does
+      const resume = ctx.resume.bind(ctx);
+      ctx.resume = () => Promise.resolve(); // rendering must not restart while a sound is still being scheduled
+      new Set(plays.map(([time]) => time)).forEach((time) => {
+        const playNow = () => plays.filter((play) => play[0] === time).forEach(([, name, arg]) => win.Sound.play(name, arg));
+        if (time === 0) playNow();
+        else ctx.suspend(time).then(() => { playNow(); resume(); });
+      });
+      const data = (await ctx.startRendering()).getChannelData(0);
+      let peak = 0;
+      for (let i = 0; i < data.length; i += 1) peak = Math.max(peak, Math.abs(data[i]));
+      return 20 * Math.log10(peak);
+    }
+
+    const everyday = [["tick", 1], ["click"], ["select"], ["add"], ["remove"]];
+    const rare = [["stage", "alert"], ["stage", "prepare"], ["stage", "evacuate"], ["success"], ["complete"]];
+    const others = [["check", true], ["check", false], ["sweep"], ["push"], ["pop"], ["toggle", "up"], ["toggle", "down"], ["toggle", "mid"],
+      ["category", 1], ["category", 5], ["nudge"]];
+    const label = ([name, arg]) => name + (arg === undefined ? "" : "(" + arg + ")");
+    const levels = new Map();
+    const problems = [];
+    for (const sound of everyday.concat(rare, others)) {
+      const first = await peakOf([[0, ...sound]], 1.2);
+      const later = await peakOf([[1, ...sound]], 2.2);
+      levels.set(label(sound), later);
+      if (Math.abs(first - later) > 0.5) problems.push(label(sound) + " peaks at " + first.toFixed(1) + " dBFS the first time but " + later.toFixed(1) + " dBFS later");
+      if (later > -6) problems.push(label(sound) + " peaks at " + later.toFixed(1) + " dBFS, too close to clipping");
+      if (!(later > -40)) problems.push(label(sound) + " peaks at " + later.toFixed(1) + " dBFS, too quiet to hear");
+    }
+    assert.none(problems, "sound levels");
+
+    const loudestEveryday = Math.max(...everyday.map((sound) => levels.get(label(sound))));
+    const quietestRare = Math.min(...rare.map((sound) => levels.get(label(sound))));
+    assert.ok(loudestEveryday <= quietestRare - 4, "everyday sounds (loudest " + loudestEveryday.toFixed(1) + " dBFS) should sit at least 4 dB below rare ones (quietest " + quietestRare.toFixed(1) + " dBFS)");
+
+    // A visitor tapping as fast as they can still never drives the output near clipping.
+    const tappedStages = await peakOf([0, 0.08, 0.16, 0.24, 0.32, 0.4].map((time) => [time, "stage", "evacuate"]), 2);
+    const tappedChecklist = await peakOf([0, 0.1, 0.2, 0.3].map((time) => [time, "complete"]), 2);
+    assert.ok(tappedStages <= -3, "\"Evacuate now\" tapped six times in half a second peaks at " + tappedStages.toFixed(1) + " dBFS");
+    assert.ok(tappedChecklist <= -3, "the checklist finished four times in 0.4 s peaks at " + tappedChecklist.toFixed(1) + " dBFS");
+    noErrors(page);
   });
 
   test("site: the header collapses on scroll on wide screens and stays compact on narrow ones", async () => {

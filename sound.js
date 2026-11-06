@@ -17,7 +17,10 @@
   "use strict";
 
   const STORAGE_KEY = "sound";
-  const MASTER_GAIN = 0.8;
+  // The per-sound gains below stay small and easy to compare (0.05–0.16). This lifts the whole
+  // set so the loudest sound, "Evacuate now", peaks near −11 dBFS: far enough below clipping
+  // that no limiter is needed (the tests check this).
+  const MASTER_GAIN = 1.3;
   const TICK_SPACING = 0.035; // seconds between slider ticks, so fast drags never buzz
 
   let enabled = true;
@@ -43,17 +46,12 @@
       } catch (error) {
         return null;
       }
-      // master gain -> limiter -> speakers. The limiter stops bursts of sound from clipping.
-      const limiter = ctx.createDynamicsCompressor();
-      limiter.threshold.value = -10;
-      limiter.knee.value = 6;
-      limiter.ratio.value = 12;
-      limiter.attack.value = 0.002;
-      limiter.release.value = 0.12;
+      // master gain -> speakers. Deliberately no DynamicsCompressor: the browser's compressor
+      // adds its own make-up gain (about +4 dB here) and starts out ducked, so the first sound
+      // after each page load came out up to 15 dB quieter than the same sound a moment later.
       out = ctx.createGain();
       out.gain.value = MASTER_GAIN;
-      out.connect(limiter);
-      limiter.connect(ctx.destination);
+      out.connect(ctx.destination);
     }
     if (ctx.state === "suspended") ctx.resume().catch(() => {});
     return ctx;
@@ -140,8 +138,8 @@
       if (!c) return;
       const t = c.currentTime + 0.003;
       const j = jitter(0.03);
-      tone(c, "triangle", 1800 * j, t, 0.12, 0.001, 0.02, 900 * j);
-      burst(c, t, 0.05, 0.004, "highpass", 3000, 0.7);
+      tone(c, "triangle", 1800 * j, t, 0.06, 0.001, 0.02, 900 * j);
+      burst(c, t, 0.025, 0.004, "highpass", 3000, 0.7);
     },
     // An option, tab or filter was chosen.
     select(pitch) {
@@ -149,7 +147,7 @@
       if (!c) return;
       const t = c.currentTime + 0.003;
       const j = jitter(0.03) * (pitch || 1);
-      tone(c, "sine", 420 * j, t, 0.16, 0.002, 0.08, 840 * j);
+      tone(c, "sine", 420 * j, t, 0.08, 0.002, 0.08, 840 * j);
     },
     // "down" falls (dark theme, sound off), "up" rises (light theme, sound on), "mid" is one note.
     toggle(direction) {
@@ -202,13 +200,13 @@
     },
     add() {
       SOUNDS.select();
-      mallet(988, 0.06, 0.12, 0.03);
+      mallet(988, 0.03, 0.12, 0.03);
     },
     remove() {
       const c = context();
       if (!c) return;
       const j = jitter(0.03);
-      tone(c, "sine", 760 * j, c.currentTime + 0.003, 0.14, 0.002, 0.08, 380 * j);
+      tone(c, "sine", 760 * j, c.currentTime + 0.003, 0.07, 0.002, 0.08, 380 * j);
     },
     // Clearing a list.
     sweep() {
