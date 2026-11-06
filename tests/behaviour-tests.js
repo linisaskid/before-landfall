@@ -202,12 +202,18 @@
     button.click();
     assert.equal(button.getAttribute("aria-pressed"), "true");
     assert.equal(localStorage.getItem("sound"), null);
-    const calls = [["tick", 1.1], ["click"], ["select", 1.2], ["toggle", "down"], ["toggle", "up"], ["toggle", "mid"], ["push"], ["pop"],
+    const calls = [["tick", 1.1], ["select", 1.2], ["toggle", "down"], ["toggle", "up"], ["toggle", "mid"], ["push"], ["pop"],
       ["stage", "alert"], ["stage", "prepare"], ["stage", "evacuate"], ["stage", "nope"], ["category", 0], ["category", 9], ["category", "x"],
       ["success"], ["complete"], ["nudge"], ["add"], ["remove"], ["sweep"], ["check", true], ["check", false], ["no-such-sound"]];
     for (let round = 0; round < 3; round += 1) calls.forEach(([name, arg]) => page.win.Sound.play(name, arg));
     await sleep(300);
     noErrors(page);
+
+    // Links load the next page straight away: sound never holds a page change back.
+    let held = null;
+    page.win.addEventListener("click", (event) => { held = event.defaultPrevented; event.preventDefault(); }, { once: true });
+    page.$('a[href="cyclones.html"]').click();
+    assert.equal(held, false, "a link to another page should not wait for a sound");
 
     store("sound", "off");
     const muted = await openPage("index.html");
@@ -242,7 +248,7 @@
       return 20 * Math.log10(peak);
     }
 
-    const everyday = [["tick", 1], ["click"], ["select"], ["add"], ["remove"]];
+    const everyday = [["tick", 1], ["select"], ["add"], ["remove"]];
     const rare = [["stage", "alert"], ["stage", "prepare"], ["stage", "evacuate"], ["success"], ["complete"]];
     const others = [["check", true], ["check", false], ["sweep"], ["push"], ["pop"], ["toggle", "up"], ["toggle", "down"], ["toggle", "mid"],
       ["category", 1], ["category", 5], ["nudge"]];

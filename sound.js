@@ -9,6 +9,9 @@
  * - No sirens, wind or storm effects. Warning stages use calm mallet notes that
  *   get lower as danger rises; "Evacuate now" is a falling fourth, not an alarm.
  * - Sound never carries information alone: visible text and aria-live stay the source.
+ * - Anything that loads another page stays silent. The new page is feedback enough, and the
+ *   browser cuts off sound on the page being left, so a sound there would mean holding the
+ *   page change back until it finished.
  * - The iPhone silent switch is respected (audio session "ambient").
  *
  * Usage from script.js:  window.Sound.play("tick", 1.1)
@@ -132,15 +135,6 @@
       tone(c, "sine", freq, t, 0.07, 0.0005, 0.006);
       burst(c, t, 0.06, 0.002, "bandpass", freq, 14);
     },
-    // Link to another page.
-    click() {
-      const c = context();
-      if (!c) return;
-      const t = c.currentTime + 0.003;
-      const j = jitter(0.03);
-      tone(c, "triangle", 1800 * j, t, 0.06, 0.001, 0.02, 900 * j);
-      burst(c, t, 0.025, 0.004, "highpass", 3000, 0.7);
-    },
     // An option, tab or filter was chosen.
     select(pitch) {
       const c = context();
@@ -257,45 +251,6 @@
     if (!ctx) return;
     if (document.hidden) ctx.suspend().catch(() => {});
     else ctx.resume().catch(() => {});
-  });
-
-  // Links to another page of the site. Same-page anchors, new tabs and downloads stay silent.
-  //
-  // The click sound plays on the page being left, and the browser tears that page down, audio
-  // included, as soon as the next page arrives. On a cached or fast load that is about 10 ms
-  // after the click, which cut the 25 ms sound off part of the time. So when sound is on, the
-  // page change waits just long enough for the click to be heard: usually about 50 ms, which
-  // people do not notice, and never more than 150 ms.
-  const NAV_SOUND_MS = 45; // the click's audible length plus scheduling margin
-  const NAV_MAX_WAIT_MS = 150; // never hold a page change longer than this
-  document.addEventListener("click", (event) => {
-    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    const link = event.target.closest && event.target.closest("a[href]");
-    if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
-    let url;
-    try { url = new URL(link.href, window.location.href); } catch (error) { return; }
-    // "/" and "/index.html" are the same page.
-    const page = (path) => path.replace(/\/index\.html$/, "/");
-    if (url.origin !== window.location.origin || page(url.pathname) === page(window.location.pathname)) return;
-    if (!enabled) return; // muted: the link behaves exactly as normal
-    const c = context();
-    if (!c) return;
-
-    event.preventDefault();
-    play("click");
-
-    let gone = false;
-    const go = () => {
-      if (gone) return;
-      gone = true;
-      window.location.assign(url.href);
-    };
-    // Add the device's own output delay (Bluetooth headphones can add a lot; the cap still applies).
-    const latencyMs = ((c.baseLatency || 0) + (c.outputLatency || 0)) * 1000;
-    const wait = Math.min(NAV_MAX_WAIT_MS, NAV_SOUND_MS + latencyMs);
-    window.setTimeout(go, NAV_MAX_WAIT_MS); // fallback if the audio never starts
-    if (c.state === "running") window.setTimeout(go, wait);
-    else c.resume().then(() => window.setTimeout(go, wait), go);
   });
 
   // Fold-out sections (<details>) open with "push" and close with "pop".
