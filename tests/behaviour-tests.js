@@ -1019,10 +1019,277 @@
   }, { timeout: 60000 });
 
   // ==========================================================================
+  // Accounts and the Community page
+  // ==========================================================================
+
+  const COMMUNITY = {
+    users: "beforeLandfall.users.v1",
+    session: "beforeLandfall.session.v1",
+    events: "beforeLandfall.events.v1",
+    posts: "beforeLandfall.posts.v1",
+  };
+  const isoDay = (win, offset) => {
+    const date = new win.Date();
+    date.setDate(date.getDate() + offset);
+    return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+  };
+  const fieldError = (page, id) => {
+    const box = page.$("#" + id + "-error");
+    return box && !box.hidden ? text(box) : "";
+  };
+  // People saved straight into storage. Logging in only needs the session to name them,
+  // so they need no password hash.
+  const person = (id, name, role) => ({ id, name, username: name.toLowerCase(), email: "", salt: "", hash: "", role, joined: Date.UTC(2026, 0, 1) });
+  function signedIn(user, others) {
+    store(COMMUNITY.users, [user].concat(others || []));
+    store(COMMUNITY.session, { userId: user.id, at: Date.now() });
+  }
+  function fillRegister(page, values) {
+    Object.entries(values).forEach(([name, value]) => {
+      const input = page.$("#register-" + name);
+      if (input.type === "checkbox") {
+        if (input.checked !== value) input.click();
+      } else {
+        setValue(input, value);
+        fire(input, "blur", { bubbles: false });
+      }
+    });
+  }
+  const submit = (page, formId) => page.$("#" + formId + " button[type='submit']").click();
+
+  test("account: the hash matches the published SHA-256 examples", async () => {
+    const page = await openPage("account.html");
+    const { sha256 } = page.win.BeforeLandfallCommunity;
+    assert.equal(sha256(""), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    assert.equal(sha256("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    assert.equal(sha256("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"), "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1");
+    assert.equal(sha256("a".repeat(1000)), "41edece42d63e8d9bf515a9ba6932e1c20cbc9f5a5d134645adb5db1b9737ea3", "several blocks");
+    noErrors(page);
+  });
+
+  test("account: register checks every box, then saves a member without the password and logs them in", async () => {
+    let page = await openPage("account.html");
+    submit(page, "register-form");
+    const empty = ["name", "username", "email", "password", "confirm", "agree"].filter((name) => !fieldError(page, "register-" + name));
+    assert.deepEqual(empty, [], "every empty box shows an error");
+    assert.equal(page.doc.activeElement.id, "register-name", "focus goes to the first problem");
+
+    fillRegister(page, { name: "Mya", username: "Mya Storm", email: "mya@", password: "short", confirm: "other" });
+    assert.match(fieldError(page, "register-username"), /letters, numbers or underscores/);
+    assert.match(fieldError(page, "register-email"), /email address like/);
+    assert.match(fieldError(page, "register-password"), /at least 8/);
+    assert.match(fieldError(page, "register-confirm"), /do not match/);
+    fillRegister(page, { password: "longenough" });
+    assert.match(fieldError(page, "register-password"), /letter and one number/);
+    fillRegister(page, { username: "aye_chan" });
+    assert.match(fieldError(page, "register-username"), /taken/, "a sample member's username is taken");
+
+    fillRegister(page, { username: "mya_storm", email: "mya@example.com", password: "typhoon2026", confirm: "typhoon2026", agree: true });
+    assert.equal(page.$$(".field-error:not([hidden])").length, 0, "no errors remain");
+    assert.equal(page.$("#password-strength").dataset.level, "weak", "lower-case letters and a number are weak");
+    fillRegister(page, { password: "Typhoon-2026!", confirm: "Typhoon-2026!" });
+    assert.equal(page.$("#password-strength").dataset.level, "strong", "long, mixed case and a symbol are strong");
+    submit(page, "register-form");
+    page = await nextLoad(page);
+    assert.match(page.win.location.pathname, /community\.html$/, "goes on to the Community page");
+
+    const saved = localStorage.getItem(COMMUNITY.users);
+    const mya = JSON.parse(saved).find((user) => user.username === "mya_storm");
+    assert.ok(mya && mya.role === "member", "saved as a member");
+    assert.match(mya.hash, /^[0-9a-f]{64}$/, "the password is kept as a hash");
+    assert.ok(!/typhoon-2026/i.test(saved), "the password itself is never saved");
+    assert.deepEqual(stored(COMMUNITY.session).userId, mya.id, "logged in, and kept logged in");
+    assert.equal(text(page.$("#account-link .account-label")), "Mya", "the header shows the name");
+    assert.ok(page.$("#admin-tools").hidden, "a member does not see the admin tools");
+    noErrors(page);
+  }, { timeout: 60000 });
+
+  test("account: log in refuses a wrong password, and 'keep me logged in' decides where the session lives", async () => {
+    let page = await openPage("account.html");
+    fillRegister(page, { name: "Ko Test", username: "ko_test", email: "ko@example.com", password: "surge2026a", confirm: "surge2026a", agree: true });
+    submit(page, "register-form");
+    page = await nextLoad(page);
+
+    page = await openPage("account.html");
+    assert.ok(!page.$("#signed-in-card").hidden && page.$("#account-forms").hidden, "a logged-in visitor sees who they are");
+    page.$("#log-out-button").click();
+    assert.equal(localStorage.getItem(COMMUNITY.session), null, "log out forgets the session");
+    assert.ok(!page.$("#account-forms").hidden, "the forms come back");
+
+    submit(page, "login-form");
+    assert.match(fieldError(page, "login-id"), /username or email/);
+    setValue(page.$("#login-id"), "ko_test");
+    setValue(page.$("#login-password"), "wrong-pass1");
+    submit(page, "login-form");
+    assert.match(text(page.$("#login-error")), /do not match/);
+    assert.equal(page.$("#login-password").value, "", "the wrong password is cleared");
+    setValue(page.$("#login-id"), "nobody");
+    setValue(page.$("#login-password"), "surge2026a");
+    submit(page, "login-form");
+    assert.match(text(page.$("#login-error")), /do not match/, "an unknown name gets the same message");
+
+    page.$("#login-password").type = "password";
+    page.$("[data-password-toggle][aria-controls='login-password']").click();
+    assert.equal(page.$("#login-password").type, "text", "Show reveals the password");
+    assert.equal(text(page.$("[data-password-toggle][aria-controls='login-password'] .toggle-word")), "Hide");
+
+    setValue(page.$("#login-id"), "KO@example.com");
+    setValue(page.$("#login-password"), "surge2026a");
+    page.$("#login-remember").click();
+    submit(page, "login-form");
+    page = await nextLoad(page);
+    assert.equal(localStorage.getItem(COMMUNITY.session), null, "unticked: not kept in localStorage");
+    assert.ok(sessionStorage.getItem(COMMUNITY.session), "unticked: kept for this tab only");
+    sessionStorage.removeItem(COMMUNITY.session);
+    noErrors(page);
+  }, { timeout: 60000 });
+
+  test("community: guests can read, and the calendar moves by click, button and keyboard", async () => {
+    const page = await openPage("community.html");
+    const { win } = page;
+    assert.ok(page.$("#post-form").hidden && !page.$("#post-prompt").hidden, "guests are asked to log in to post");
+    assert.ok(page.$("#event-form").hidden, "guests cannot suggest meet-ups");
+    assert.ok(page.$$("#post-list .post-card").length >= 4, "the sample posts show");
+    assert.ok(page.$("#post-list .post-card").classList.contains("is-pinned"), "the pinned post comes first");
+    assert.equal(page.$$("#post-list .reply-form").length, 0, "no reply boxes for guests");
+    assert.ok(!text(page.$("#upcoming-events")).includes("evacuation route"), "a meet-up waiting for approval is hidden from guests");
+
+    const now = new win.Date();
+    const monthName = MONTHS[now.getMonth()] + " " + now.getFullYear();
+    assert.equal(text(page.$("#calendar-month")), monthName);
+    const selected = () => page.$('.calendar-day[aria-pressed="true"]').dataset.date;
+    assert.equal(selected(), isoDay(win, 0), "today is chosen");
+    assert.equal(page.$$('.calendar-day[tabindex="0"]').length, 1, "one day is in the tab order");
+
+    key(page.$(".calendar-day[aria-pressed='true']"), "ArrowRight");
+    assert.equal(selected(), isoDay(win, 1), "ArrowRight moves a day");
+    key(page.doc.activeElement, "ArrowUp");
+    assert.equal(selected(), isoDay(win, -6), "ArrowUp moves back a week");
+    assert.equal(page.doc.activeElement.dataset.date, selected(), "focus follows the chosen day");
+    const before = text(page.$("#calendar-month"));
+    key(page.doc.activeElement, "PageDown");
+    assert.ok(text(page.$("#calendar-month")) !== before, "PageDown shows another month");
+    page.$("#calendar-today").click();
+    assert.equal(selected(), isoDay(win, 0), "Today comes back");
+    page.$("#calendar-prev").click();
+    page.$("#calendar-next").click();
+    assert.equal(text(page.$("#calendar-month")), monthName, "back and forward return to this month");
+
+    const fanMeet = isoDay(win, 4);
+    if (!page.$('[data-date="' + fanMeet + '"]')) page.$("#calendar-next").click();
+    page.$('[data-date="' + fanMeet + '"]').click();
+    assert.match(text(page.$("#day-events")), /fan meet/, "choosing a day lists its meet-ups");
+    assert.match(page.$('[data-date="' + fanMeet + '"]').getAttribute("aria-label"), /1 meet-up/);
+    noErrors(page);
+  });
+
+  test("community: members post as plain text, reply, and suggest meet-ups that wait for an admin", async () => {
+    signedIn(person("u-tester", "Tester", "member"));
+    let page = await openPage("community.html");
+    page.win.confirm = () => true;
+    assert.ok(!page.$("#post-form").hidden, "members can post");
+    assert.ok(page.$('#new-post-topic option[value="Notice"]').disabled, "only admins can post a notice");
+
+    submit(page, "post-form");
+    assert.ok(fieldError(page, "new-post-title") && fieldError(page, "new-post-body"), "empty posts are refused");
+    setValue(page.$("#new-post-title"), '<img src=x onerror="window.__hacked=1"> Surge facts');
+    setValue(page.$("#new-post-body"), "First <b>paragraph</b>.\n\nSecond paragraph.");
+    setValue(page.$("#new-post-topic"), "History", ["change"]);
+    submit(page, "post-form");
+    const card = page.$$("#post-list .post-card").find((item) => /Surge facts/.test(text(item)));
+    assert.ok(card, "the post is listed");
+    assert.equal(text(card.querySelector(".post-title")), '<img src=x onerror="window.__hacked=1"> Surge facts', "the title shows as text");
+    assert.equal(page.$$("#post-list img, #post-list b").length, 0, "no HTML from the post is built");
+    assert.equal(card.querySelectorAll(".post-body > p").length, 2, "blank lines make paragraphs");
+    assert.ok(!page.win.__hacked);
+
+    const details = card.querySelector("details");
+    details.open = true;
+    setValue(details.querySelector("textarea"), "A reply from me");
+    details.querySelector("form button").click();
+    const posts = stored(COMMUNITY.posts);
+    assert.deepEqual(posts.find((post) => /Surge facts/.test(post.title)).replies.map((reply) => reply.body), ["A reply from me"]);
+
+    const day = isoDay(page.win, 2);
+    if (!page.$('[data-date="' + day + '"]')) page.$("#calendar-next").click();
+    page.$('[data-date="' + day + '"]').click();
+    submit(page, "event-form");
+    assert.ok(fieldError(page, "meetup-title") && fieldError(page, "meetup-time") && fieldError(page, "meetup-place"), "a meet-up needs a name, time and place");
+    setValue(page.$("#meetup-title"), "Rain gauge club");
+    setValue(page.$("#meetup-time"), "16:45");
+    setValue(page.$("#meetup-place"), "Science lab");
+    submit(page, "event-form");
+    const saved = stored(COMMUNITY.events).find((event) => event.title === "Rain gauge club");
+    assert.ok(saved && saved.status === "pending" && saved.date === day, "a member's meet-up waits for approval");
+    assert.ok(page.$("#day-events .event-card.is-pending"), "the person who suggested it can see it");
+
+    page.$$("#day-events .event-card .text-button").find((button) => text(button) === "Delete").click();
+    assert.ok(!stored(COMMUNITY.events).some((event) => event.title === "Rain gauge club"), "members can delete their own meet-up");
+    assert.equal(page.$$("#post-list .post-card").filter((item) => !/Surge facts/.test(text(item))).flatMap((item) => Array.from(item.querySelectorAll(".post-actions .text-button"))).length, 0, "no delete buttons on other people's posts");
+    noErrors(page);
+  });
+
+  test("community: admins approve meet-ups, pin and delete posts, and choose other admins", async () => {
+    signedIn(person("u-boss", "Boss", "admin"), [person("u-pupil", "Pupil", "member")]);
+    store(COMMUNITY.posts, [
+      { id: "p-old", title: "Older post", body: "Older body text.", topic: "Science", authorId: "u-pupil", created: Date.now() - 2e8, pinned: false, replies: [] },
+      { id: "p-new", title: "Newer post", body: "Newer body text.", topic: "Question", authorId: "u-pupil", created: Date.now() - 1e8, pinned: false, replies: [] },
+    ]);
+    const page = await openPage("community.html");
+    page.win.confirm = () => true;
+    const firstTitle = () => text(page.$("#post-list .post-title"));
+    assert.ok(!page.$("#admin-tools").hidden, "admins see the admin tools");
+    assert.ok(!page.$('#new-post-topic option[value="Notice"]').disabled, "admins can post a notice");
+    assert.equal(firstTitle(), "Newer post", "newest first");
+
+    page.$$("#post-list .text-button").find((button) => button.getAttribute("aria-label") === "Pin “Older post”").click();
+    assert.equal(firstTitle(), "Older post", "a pinned post goes to the top");
+    assert.ok(stored(COMMUNITY.posts).find((post) => post.id === "p-old").pinned);
+    page.$$("#post-list .text-button").find((button) => button.getAttribute("aria-label") === "Delete the post “Newer post”").click();
+    assert.deepEqual(stored(COMMUNITY.posts).map((post) => post.id), ["p-old"], "admins can delete anyone's post");
+
+    const pending = page.$("#pending-events .event-card");
+    assert.ok(pending && /evacuation route/.test(text(pending)), "the sample suggestion waits for approval");
+    Array.from(pending.querySelectorAll("button")).find((button) => text(button) === "Approve").click();
+    assert.equal(stored(COMMUNITY.events).find((event) => event.id === "e-sample-map").status, "approved");
+    assert.ok(!page.$("#pending-empty").hidden, "nothing is left waiting");
+
+    const rows = () => page.$$("#member-rows tr").map((row) => text(row));
+    assert.ok(rows().some((row) => /^Lin Thuriya Pho Hlaing.*Not registered yet/.test(row)), "the group admins wait to register");
+    const waiting = page.$('#member-rows button[aria-label="Make Zayar Win Htay a member"]');
+    assert.ok(waiting && waiting.disabled, "a group admin keeps the role until they register");
+    page.$('#member-rows button[aria-label="Make Pupil an admin"]').click();
+    assert.equal(stored(COMMUNITY.users).find((user) => user.id === "u-pupil").role, "admin");
+    assert.ok(rows().some((row) => /^Boss.*You$/.test(row)), "admins cannot change their own role");
+
+    noErrors(page);
+  });
+
+  test("community: damaged saves and blocked storage never break the pages", async () => {
+    const problems = [];
+    const damaged = ["{", "null", "[]", '{"userId":"u-ghost"}', JSON.stringify([{ id: "x", title: 5 }, null, "a"]), JSON.stringify([{ id: "u-x", username: "<b>", name: "" }])];
+    for (const value of damaged) {
+      Object.values(COMMUNITY).forEach((name) => localStorage.setItem(name, value));
+      for (const path of ["community.html", "account.html"]) {
+        const page = await openPage(path);
+        errorsIn(page).forEach((error) => problems.push(path + " with " + value + ": " + error));
+      }
+    }
+    Object.values(COMMUNITY).forEach((name) => localStorage.removeItem(name));
+    const blocked = await openPage("account.html", { inject: STORAGE_BLOCKED });
+    errorsIn(blocked).forEach((error) => problems.push("blocked account.html: " + error));
+    if (blocked.$("#account-storage-note").hidden) problems.push("blocked account.html: no storage message");
+    const blockedCommunity = await openPage("community.html", { inject: STORAGE_BLOCKED });
+    errorsIn(blockedCommunity).forEach((error) => problems.push("blocked community.html: " + error));
+    if (!blockedCommunity.$$("#post-list .post-card").length) problems.push("blocked community.html: the sample posts are missing");
+    assert.none(problems);
+  }, { timeout: 60000 });
+
+  // ==========================================================================
   // Storage fuzzing: random JSON in every saved key must never break a page
   // ==========================================================================
 
-  test("stress: 36 random saved values across the storage keys never cause an error", async () => {
+  test("stress: 60 random saved values across the storage keys never cause an error", async () => {
     const pick = random(1234);
     const value = (depth) => {
       const r = pick();
@@ -1030,17 +1297,19 @@
       if (r < 0.35) return Math.round((pick() - 0.5) * 1e6) / 100;
       if (r < 0.5) return "s".repeat(Math.floor(pick() * 300));
       if (r < 0.75) return Array.from({ length: Math.floor(pick() * 8) }, () => value(depth + 1));
-      const keys = ["distance", "speed", "hours", "arrival", "title", "task", "when", "person", "who", "tasks", "planName", "household", "householdName", "shelter", "meeting", "meetingPlace", "routeOne", "contact", "__proto__", "constructor"];
+      const keys = ["distance", "speed", "hours", "arrival", "title", "task", "when", "person", "who", "tasks", "planName", "household", "householdName", "shelter", "meeting", "meetingPlace", "routeOne", "contact",
+        "id", "userId", "username", "name", "role", "hash", "date", "time", "status", "going", "body", "replies", "pinned", "created", "__proto__", "constructor"];
       const object = {};
       for (let i = Math.floor(pick() * 6); i > 0; i -= 1) object[keys[Math.floor(pick() * keys.length)]] = value(depth + 1);
       return object;
     };
-    const targets = [["calculator.html", KEYS.calculator], ["prepare.html", KEYS.checklist], ["prepare.html", KEYS.plan], ["index.html", "theme"], ["index.html", "sound"], ["cyclones.html", "theme"]];
+    const targets = [["calculator.html", KEYS.calculator], ["prepare.html", KEYS.checklist], ["prepare.html", KEYS.plan], ["index.html", "theme"], ["index.html", "sound"], ["cyclones.html", "theme"],
+      ["community.html", "beforeLandfall.users.v1"], ["community.html", "beforeLandfall.events.v1"], ["community.html", "beforeLandfall.posts.v1"], ["account.html", "beforeLandfall.session.v1"]];
     const problems = [];
     for (let round = 0; round < 6; round += 1) {
       for (const [path, name] of targets) {
         const payload = JSON.stringify(value(0));
-        Object.values(KEYS).concat(["theme", "sound"]).forEach((stale) => localStorage.removeItem(stale));
+        Object.values(KEYS).concat(["theme", "sound"], Object.values(COMMUNITY)).forEach((stale) => localStorage.removeItem(stale));
         localStorage.setItem(name, payload);
         const page = await openPage(path);
         errorsIn(page).forEach((error) => problems.push(name + " = " + payload.slice(0, 60) + ": " + error));

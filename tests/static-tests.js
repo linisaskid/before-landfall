@@ -3,7 +3,7 @@
   "use strict";
 
   const { PAGES, PAGE_KEYS, test, assert, getText, getDoc, exists, site } = window.Harness;
-  const SITE_SCRIPTS = ["script.js", "sound.js", "motion.js"];
+  const SITE_SCRIPTS = ["script.js", "community.js", "sound.js", "motion.js"];
   const LIB_SCRIPTS = ["lib/lisse.js", "lib/rolltext.min.js", "lib/gsap.min.js", "lib/ScrollTrigger.min.js", "lib/SplitText.min.js"];
   const STYLESHEETS = ["styles.css", "motion.css"];
   const COMMONS = "https://commons.wikimedia.org/wiki/Special:FilePath/";
@@ -403,7 +403,7 @@
     const count = sources.getElementById("reference-count").textContent.trim();
     if (count !== references.length + " references shown.") problems.push('reference count says "' + count + '"');
     const options = Array.from(sources.querySelectorAll("#reference-filter option")).map((o) => o.value);
-    const keys = PAGES.filter((p) => p !== "sources.html").map((p) => PAGE_KEYS[p]);
+    const keys = PAGES.filter((p) => p !== "sources.html" && PAGE_KEYS[p]).map((p) => PAGE_KEYS[p]);
     if (options.join() !== ["all", ...keys].join()) problems.push("the filter options " + options.join() + " do not list every page");
     assert.none(problems);
   });

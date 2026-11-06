@@ -14,11 +14,13 @@
 (function () {
   "use strict";
 
-  const PAGES = ["index.html", "cyclones.html", "history.html", "calculator.html", "warnings.html", "prepare.html", "sources.html"];
-  // The page keys used by the Sources page (data-pages) and its filter.
+  const PAGES = ["index.html", "cyclones.html", "history.html", "calculator.html", "warnings.html", "prepare.html", "sources.html", "community.html", "account.html"];
+  // The page keys used by the Sources page (data-pages) and its filter. The Community
+  // and Account pages cite no sources, so they have no key and no filter option.
   const PAGE_KEYS = { "index.html": "home", "cyclones.html": "cyclones", "history.html": "history", "calculator.html": "calculator", "warnings.html": "warnings", "prepare.html": "prepare", "sources.html": "sources" };
-  const STORAGE_KEYS = ["theme", "sound", "beforeLandfall.calculatorHistory.v1", "beforeLandfall.preparationChecklist.v1", "beforeLandfall.familyPlan.v1"];
-  const SITE_FILES = PAGES.concat(["styles.css", "motion.css", "script.js", "sound.js", "motion.js", "images/logo.svg",
+  const STORAGE_KEYS = ["theme", "sound", "beforeLandfall.calculatorHistory.v1", "beforeLandfall.preparationChecklist.v1", "beforeLandfall.familyPlan.v1",
+    "beforeLandfall.users.v1", "beforeLandfall.session.v1", "beforeLandfall.events.v1", "beforeLandfall.posts.v1"];
+  const SITE_FILES = PAGES.concat(["styles.css", "motion.css", "script.js", "community.js", "sound.js", "motion.js", "images/logo.svg",
     "lib/lisse.js", "lib/rolltext.min.js", "lib/gsap.min.js", "lib/ScrollTrigger.min.js", "lib/SplitText.min.js"]);
 
   const tests = [];
