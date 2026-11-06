@@ -136,7 +136,7 @@
         </div>
 
         <div class="day-panel" data-smooth>
-          <h3 class="day-title" id="day-title">Choose a day</h3>
+          <h3 class="day-title" id="day-title" tabindex="-1">Choose a day</h3>
           <ul class="event-list" id="day-events"></ul>
           <p class="empty-state" id="day-empty">No meet-ups on this day.</p>
 
@@ -172,7 +172,7 @@
       </div>
 
       <div class="upcoming">
-        <h3>Coming up</h3>
+        <h3 id="upcoming-title" tabindex="-1">Coming up</h3>
         <ul class="event-list event-list--upcoming" id="upcoming-events"></ul>
         <p class="empty-state" id="upcoming-empty" hidden>Nothing is planned yet. Suggest the first meet-up!</p>
       </div>
@@ -257,7 +257,7 @@
       </div>
       <div class="admin-grid">
         <div class="admin-card" data-smooth>
-          <h3>Meet-ups waiting for approval</h3>
+          <h3 id="pending-title" tabindex="-1">Meet-ups waiting for approval</h3>
           <ul class="event-list" id="pending-events"></ul>
           <p class="empty-state" id="pending-empty">Nothing is waiting. All caught up.</p>
         </div>

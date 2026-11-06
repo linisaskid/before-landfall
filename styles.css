@@ -2989,6 +2989,22 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
      below 61rem the links take their own row under the logo. */
   .header-inner > nav { flex: 1 0 100%; order: 2; margin-left: 0; }
 }
+@media (min-width: 61.0625rem) and (max-width: 70rem) {
+  /* Above 61rem the links share the logo's row. "Log in" fits beside them, but a
+     member's name would push the account link onto a row of its own, so up to 70rem a
+     logged-in visitor gets just their initial. The name is still read out, and the
+     link's tooltip shows it. */
+  .account-link.is-signed-in { padding: var(--space-half); }
+  .account-link.is-signed-in .account-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
 
 /* --- Shared pieces --------------------------------------------------------- */
 .demo-note {
@@ -3044,7 +3060,8 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .chip-button:hover { border-color: var(--sea); }
 .chip-button.is-on { border-color: var(--sea); background: var(--sea); color: var(--sea-ink); }
 .chip-button:focus-visible, .calendar-day:focus-visible, .calendar-nav:focus-visible, .calendar-today:focus-visible,
-.event-jump:focus-visible, .post-replies summary:focus-visible, .post-title:focus-visible, #board-title:focus-visible {
+.event-jump:focus-visible, .post-replies summary:focus-visible, .post-title:focus-visible, #board-title:focus-visible,
+#day-title:focus-visible, #upcoming-title:focus-visible, #pending-title:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
@@ -3176,7 +3193,10 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .event-card.is-past { opacity: .78; }
 .event-when { color: var(--sea); font: var(--weight-bold) .75rem/1.4 var(--sans); letter-spacing: .08em; text-transform: uppercase; }
 .event-title { margin-top: var(--space-half); font: var(--weight-bold) var(--text-md)/1.3 var(--display); overflow-wrap: anywhere; }
-.event-details { margin-top: var(--space-half); color: var(--ink-soft); font-size: var(--text-sm); line-height: 1.5; overflow-wrap: anywhere; }
+.event-details { display: grid; gap: var(--space-half); margin-top: var(--space-half); color: var(--ink-soft); font-size: var(--text-sm); line-height: 1.5; overflow-wrap: anywhere; }
+/* A blank line starts a new paragraph; a single line break (a list typed one item per
+   line, say) stays a line break instead of running the lines together. */
+.event-details p, .post-body p { white-space: pre-line; }
 .event-meta { margin-top: var(--space-1); color: var(--ink-soft); font-size: .8rem; }
 .pending-note { margin-top: var(--space-half); color: var(--ink); font-size: .8rem; }
 .event-actions, .post-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); margin-top: var(--space-1); }

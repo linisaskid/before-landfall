@@ -1265,6 +1265,167 @@
     noErrors(page);
   });
 
+  test("community: reply drafts survive the page redrawing, and keyboard focus stays in place", async () => {
+    signedIn(person("u-boss", "Boss", "admin"), [person("u-pupil", "Pupil", "member")]);
+    store(COMMUNITY.events, [
+      { id: "e-kite", title: "Kite day", date: isoDay(window, 3), time: "10:00", place: "Field", details: "", authorId: "u-boss", status: "approved", going: [] },
+      { id: "e-rain", title: "Rain walk", date: isoDay(window, 4), time: "10:00", place: "Park", details: "", authorId: "u-pupil", status: "pending", going: ["u-pupil"] },
+      { id: "e-maps", title: "Map club", date: isoDay(window, 5), time: "10:00", place: "Library", details: "", authorId: "u-pupil", status: "pending", going: ["u-pupil"] },
+    ]);
+    store(COMMUNITY.posts, [
+      { id: "p-a", title: "Post A", body: "Body of post A.", topic: "Science", authorId: "u-pupil", created: Date.now() - 2e8, pinned: false, replies: [
+        { id: "r-1", body: "First reply", authorId: "u-pupil", created: Date.now() - 1e8 },
+        { id: "r-2", body: "Second reply", authorId: "u-pupil", created: Date.now() - 5e7 }] },
+      { id: "p-b", title: "Post B", body: "Body of post B.", topic: "Science", authorId: "u-pupil", created: Date.now() - 1e8, pinned: false, replies: [] },
+    ]);
+    const page = await openPage("community.html");
+    page.win.confirm = () => true;
+    const active = () => page.doc.activeElement;
+    const field = (id) => page.$("#reply-" + id);
+    page.$$("#post-list details").forEach((details) => { details.open = true; });
+    await frames(page.win, 2);
+
+    setValue(field("p-a"), "Half-written thought");
+    const going = page.$$("#upcoming-events .chip-button").find((button) => text(button) === "I’m going");
+    going.focus();
+    going.click();
+    assert.equal(field("p-a").value, "Half-written thought", "a draft survives another part of the page changing");
+    assert.equal(text(active()), "You’re going", "focus stays on the button that was pressed");
+    assert.ok(page.$("#upcoming-events").contains(active()), "in the same list");
+    setValue(field("p-b"), "Reply to B");
+    page.$("#post-p-b .reply-form button").click();
+    assert.equal(field("p-a").value, "Half-written thought", "a draft survives a reply to another post");
+
+    const changes = [];
+    new page.win.MutationObserver((records) => changes.push(...records)).observe(page.$("#calendar-month"), { childList: true, characterData: true, subtree: true });
+    const day = page.$('.calendar-day[aria-pressed="true"]');
+    day.focus();
+    day.click(); // what Enter or Space on the button does
+    assert.equal(active().dataset.date, isoDay(page.win, 0), "choosing a day keeps focus on it");
+    await frames(page.win, 1);
+    assert.equal(changes.length, 0, "the month heading, a live region, is not rewritten with the same month");
+
+    const approve = page.$$("#pending-events button").find((button) => text(button) === "Approve");
+    approve.focus();
+    approve.click();
+    assert.match(text(active().closest(".event-card")), /Map club/, "after approving, focus moves to the next suggestion");
+    active().click();
+    assert.equal(active(), page.$("#pending-title"), "after the last one, focus goes to the list's heading");
+
+    const role = page.$('#member-rows button[aria-label="Make Pupil an admin"]');
+    role.focus();
+    role.click();
+    assert.equal(active().getAttribute("aria-label"), "Make Pupil a member", "the role button keeps focus");
+
+    const deleteReply = () => page.$("#post-p-a .reply .text-button");
+    deleteReply().focus();
+    deleteReply().click();
+    assert.equal(active(), deleteReply(), "after deleting a reply, focus moves to the next one");
+    active().click();
+    assert.equal(active(), field("p-a"), "after the last reply, focus moves to the reply box");
+    assert.equal(field("p-a").value, "Half-written thought");
+
+    page.$("#community-log-out").focus();
+    page.$("#community-log-out").click();
+    assert.equal(text(active()), "Log in", "after logging out, focus moves to the Log in link");
+    noErrors(page);
+  });
+
+  test("community: line breaks stay, a short month has no empty row, and meet-ups close once they start", async () => {
+    signedIn(person("u-boss", "Boss", "admin"), [person("u-pupil", "Pupil", "member")]);
+    store(COMMUNITY.events, [
+      { id: "e-early", title: "Early tide talk", date: "2027-02-03", time: "09:00", place: "Hall", details: "Bring:\n- a radio\n- spare batteries\n\nSee you there.", authorId: "u-boss", status: "approved", going: [] },
+      { id: "e-later", title: "Afternoon talk", date: "2027-02-03", time: "15:00", place: "Hall", details: "", authorId: "u-boss", status: "approved", going: [] },
+      { id: "e-old", title: "Old idea", date: "2027-02-01", time: "10:00", place: "Hall", details: "", authorId: "u-pupil", status: "pending", going: [] },
+      { id: "e-new", title: "New idea", date: "2027-02-10", time: "10:00", place: "Hall", details: "", authorId: "u-pupil", status: "pending", going: [] },
+    ]);
+    store(COMMUNITY.posts, [{ id: "p-list", title: "Go-bag", body: "We pack:\n- water\n- a torch\n\nCheck it in April.", topic: "Safety tips", authorId: "u-pupil", created: Date.UTC(2027, 0, 30), pinned: false, replies: [] }]);
+    const page = await openPage("community.html", { inject: fakeToday(2027, 1, 3) }); // Wednesday 3 February 2027, 10:30
+
+    assert.equal(text(page.$("#calendar-month")), "February 2027");
+    assert.equal(page.$$("#calendar-body tr").length, 4, "February 2027 starts on a Monday and fills exactly four rows");
+
+    const upcoming = text(page.$("#upcoming-events"));
+    assert.ok(!upcoming.includes("Early tide talk") && upcoming.includes("Afternoon talk"), "a meet-up that started earlier today leaves Coming up");
+    const dayCard = (title) => page.$$("#day-events .event-card").find((card) => text(card.querySelector(".event-title")) === title);
+    assert.ok(dayCard("Early tide talk").classList.contains("is-past"), "it looks finished");
+    assert.ok(!/I’m going/.test(text(dayCard("Early tide talk"))), "nobody can say they are going once it has started");
+    assert.match(text(dayCard("Afternoon talk")), /I’m going/);
+
+    const pending = page.$$("#pending-events .event-card");
+    const buttons = (card) => Array.from(card.querySelectorAll("button"), text);
+    assert.deepEqual(pending.map((card) => text(card.querySelector(".event-title"))), ["New idea", "Old idea"], "suggestions that can still be approved come first");
+    assert.deepEqual(buttons(pending[0]), ["Approve", "Decline"]);
+    assert.deepEqual(buttons(pending[1]), ["Remove"], "a suggestion whose time passed can only be removed");
+    assert.match(text(pending[1]), /Not approved before it was due to start/);
+
+    const details = dayCard("Early tide talk").querySelectorAll(".event-details > p");
+    assert.equal(details.length, 2, "a blank line in the details starts a new paragraph");
+    assert.equal(details[0].textContent, "Bring:\n- a radio\n- spare batteries");
+    assert.equal(page.win.getComputedStyle(details[0]).whiteSpace, "pre-line", "single line breaks in the details show");
+    const body = page.$("#post-p-list .post-body > p");
+    assert.equal(body.textContent, "We pack:\n- water\n- a torch");
+    assert.equal(page.win.getComputedStyle(body).whiteSpace, "pre-line", "single line breaks in a post show");
+
+    setValue(page.$("#meetup-title"), "Tide club");
+    setValue(page.$("#meetup-time"), "10:30");
+    setValue(page.$("#meetup-place"), "Hall");
+    submit(page, "event-form");
+    assert.match(fieldError(page, "meetup-time"), /already passed/, "today, a meet-up cannot start earlier than now");
+    setValue(page.$("#meetup-time"), "11:00");
+    submit(page, "event-form");
+    assert.ok(stored(COMMUNITY.events).some((event) => event.title === "Tide club" && event.time === "11:00"), "a later time today is fine");
+    noErrors(page);
+  });
+
+  test("account: other tabs, waiting group admins, an emoji initial and 'keep me logged in' when registering", async () => {
+    let page = await openPage("account.html");
+    fillRegister(page, { name: "Su", username: "su_test", email: "su@example.com", password: "monsoon2026", confirm: "monsoon2026", agree: true });
+    page.$("#register-remember").click();
+    submit(page, "register-form");
+    page = await nextLoad(page);
+    assert.equal(localStorage.getItem(COMMUNITY.session), null, "unticked: the new account is not kept logged in");
+    assert.ok(sessionStorage.getItem(COMMUNITY.session), "unticked: logged in for this tab only");
+    sessionStorage.removeItem(COMMUNITY.session);
+
+    page = await openPage("account.html");
+    setValue(page.$("#login-id"), "lin_thuriya");
+    setValue(page.$("#login-password"), "anything1");
+    submit(page, "login-form");
+    assert.match(text(page.$("#login-error")), /no password yet.*Register/, "a group admin who has not registered is told to register");
+
+    signedIn({ id: "u-emoji", name: "🌀 Storm", username: "storm", email: "", salt: "", hash: "", role: "member", joined: Date.UTC(2026, 0, 1) });
+    page = await openPage("account.html");
+    assert.equal(text(page.$("#account-link .account-avatar")), "🌀", "an emoji stays whole in the avatar");
+    assert.ok(!page.$("#signed-in-card").hidden);
+    localStorage.removeItem(COMMUNITY.session); // as another tab logging out would
+    await sleep(150);
+    assert.ok(page.$("#signed-in-card").hidden && !page.$("#account-forms").hidden, "logging out in another tab brings the forms back");
+    assert.equal(text(page.$("#account-link .account-label")), "Log in", "and the header follows");
+    store(COMMUNITY.session, { userId: "u-emoji", at: Date.now() });
+    await sleep(150);
+    assert.ok(!page.$("#signed-in-card").hidden, "logging in in another tab shows who is logged in");
+    noErrors(page);
+
+    const other = await openPage("prepare.html");
+    localStorage.removeItem(COMMUNITY.session);
+    await sleep(150);
+    assert.equal(text(other.$("#account-link .account-label")), "Log in", "the header on other pages follows too");
+  }, { timeout: 60000 });
+
+  test("account: a logged-in name never pushes the header's account link onto a row of its own", async () => {
+    signedIn({ id: "u-long", name: "W".repeat(40), username: "long_name", email: "", salt: "", hash: "", role: "member", joined: Date.UTC(2026, 0, 1) });
+    const problems = [];
+    for (const width of [320, 390, 768, 977, 1024, 1121, 1440]) {
+      const page = await openPage("index.html", { width });
+      const brand = page.$(".header-inner .brand").getBoundingClientRect();
+      const link = page.$("#account-link").getBoundingClientRect();
+      if (link.top >= brand.bottom) problems.push(width + " px: the account link sits below the logo");
+      overflow(page).forEach((problem) => problems.push(width + " px: " + problem));
+    }
+    assert.none(problems);
+  }, { timeout: 60000 });
+
   test("community: damaged saves and blocked storage never break the pages", async () => {
     const problems = [];
     const damaged = ["{", "null", "[]", '{"userId":"u-ghost"}', JSON.stringify([{ id: "x", title: 5 }, null, "a"]), JSON.stringify([{ id: "u-x", username: "<b>", name: "" }])];

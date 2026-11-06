@@ -309,6 +309,14 @@
   const fromISO = (iso) => { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d); };
   function today() { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), now.getDate()); }
   const daysFromToday = (n) => { const date = today(); date.setDate(date.getDate() + n); return toISO(date); };
+  const nowTime = () => { const now = new Date(); return String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0"); };
+
+  // A meet-up has started once its day has passed, or on its day once its start time
+  // has come. After that nobody can say they are going, or approve it.
+  function hasStarted(event) {
+    const todayISO = toISO(today());
+    return event.date < todayISO || (event.date === todayISO && !!event.time && event.time <= nowTime());
+  }
 
   function sampleEvents() {
     return [
@@ -402,6 +410,16 @@
     return user && user.role === "admin" ? el("span", { className: "role-badge", text: "Admin" }) : null;
   }
 
+  // The first character of a name, for the round avatar. A name may start with an emoji
+  // or a letter built from several code points, and charAt(0) would cut those in half.
+  function initial(name) {
+    try {
+      const first = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(name)[Symbol.iterator]().next().value;
+      if (first) return first.segment.toUpperCase();
+    } catch (error) {}
+    return (Array.from(name)[0] || "").toUpperCase();
+  }
+
   // Shows or clears a field's error message and marks the field for screen readers.
   function setFieldError(input, message) {
     const error = document.getElementById(input.id + "-error");
@@ -431,8 +449,9 @@
     const avatar = link.querySelector(".account-avatar");
     link.classList.toggle("is-signed-in", !!user);
     if (label) label.textContent = user ? user.name : "Log in";
-    if (avatar) avatar.textContent = user ? user.name.charAt(0).toUpperCase() : "";
-    if (user) link.setAttribute("title", "Your account (" + (isAdmin(user) ? "admin" : "member") + ")");
+    if (avatar) avatar.textContent = user ? initial(user.name) : "";
+    // On some widths only the avatar shows, so the tooltip names who is logged in.
+    if (user) link.setAttribute("title", "Logged in as " + user.name + " (" + (isAdmin(user) ? "admin" : "member") + ")");
     else link.removeAttribute("title");
   }
 
@@ -470,6 +489,15 @@
       updateAccountLink();
     }
 
+    // Logging in or out in another tab, or coming back to this page from the browser's
+    // back/forward cache, can change who is logged in.
+    window.addEventListener("storage", (event) => {
+      if (!event.key || event.key === KEYS.session || event.key === KEYS.users) showState();
+    });
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) showState();
+    });
+
     document.getElementById("log-out-button").addEventListener("click", () => {
       logOut();
       showState();
@@ -494,6 +522,13 @@
       }
       const users = loadUsers();
       const user = users.find((item) => item.username === id || (item.email && item.email === id));
+      // A group admin's account waits with no password until they register. Their names
+      // are already on this page, so saying so gives nothing away.
+      if (user && isUnclaimed(user) && groupAdminFor(user)) {
+        showFormError(loginError, "This admin account has no password yet. Register with your school email to set one up.");
+        passwordInput.value = "";
+        return;
+      }
       // The same message for a wrong name or a wrong password, so the form does not
       // tell a stranger which usernames exist.
       if (!user || !user.hash || hashPassword(password, user.salt) !== user.hash) {
@@ -625,8 +660,12 @@
       const claimed = claimFor(users);
       const user = claimed ? Object.assign(claimed, details, { role: "admin" }) : Object.assign({ id: newId("u"), role: "member" }, details);
       if (!claimed) users.push(user);
-      if (!saveUsers(users) || !logIn(user, true)) {
+      if (!saveUsers(users)) {
         showFormError(registerError, "Your browser is blocking storage, so the account could not be saved.");
+        return;
+      }
+      if (!logIn(user, document.getElementById("register-remember").checked)) {
+        showFormError(registerError, "Your account is saved, but your browser is blocking storage, so you could not be logged in. Try the Log in form.");
         return;
       }
       showFormError(registerError, "");
@@ -694,21 +733,82 @@
       if (!ok) storageFailed();
     }
 
+    // --- Keeping keyboard focus ---------------------------------------------------
+    // Drawing a list again replaces its buttons, which would drop keyboard focus onto the
+    // page itself and leave keyboard and screen-reader users lost. So before drawing,
+    // note the focused control (its data-focus name), the list it sits in and its card;
+    // afterwards focus the same control again or, if it has gone, the first button of the
+    // same card, or of the card that took its place, or else the list's heading.
+    const FOCUS_LISTS = {
+      "community-session": "#community-session a",
+      "calendar-body": null,
+      "day-events": "#day-title",
+      "upcoming-events": "#upcoming-title",
+      "pending-events": "#pending-title",
+      "member-rows": null,
+      "post-list": "#board-title",
+    };
+    Object.keys(FOCUS_LISTS).forEach((id) => { document.getElementById(id).dataset.focusScope = ""; });
+
+    const ownItems = (scope) => Array.from(scope.querySelectorAll("[data-focus-item]")).filter((item) => item.parentElement.closest("[data-focus-scope]") === scope);
+    const withAttr = (scope, name, value) => (value ? Array.from(scope.querySelectorAll("[" + name + "]")).find((item) => item.getAttribute(name) === value) : null);
+    const firstControl = (item) => item.querySelector(".event-actions button, .post-actions button") || item.querySelector("button, a[href], summary, textarea");
+
+    function noteFocus() {
+      const active = document.activeElement;
+      const scope = active && active !== document.body ? active.closest("[data-focus-scope]") : null;
+      if (!scope || !scope.id) return null;
+      const item = active.closest("[data-focus-item]");
+      const own = item && item.parentElement.closest("[data-focus-scope]") === scope ? item : null;
+      return {
+        scope: scope.id,
+        name: active.dataset.focus || "",
+        item: own ? own.dataset.focusItem : "",
+        index: own ? ownItems(scope).indexOf(own) : -1,
+        selection: typeof active.selectionStart === "number" ? [active.selectionStart, active.selectionEnd] : null,
+      };
+    }
+
+    function putFocusBack(note, fallback) {
+      if (!note || (document.activeElement && document.activeElement !== document.body)) return;
+      const scope = document.getElementById(note.scope);
+      let target = scope && withAttr(scope, "data-focus", note.name);
+      if (target) {
+        target.focus();
+        if (note.selection && typeof target.setSelectionRange === "function") target.setSelectionRange(note.selection[0], note.selection[1]);
+        return;
+      }
+      if (scope) {
+        const items = ownItems(scope);
+        const item = withAttr(scope, "data-focus-item", note.item) || items[Math.min(note.index, items.length - 1)];
+        target = item && firstControl(item);
+      }
+      target = target || (fallback && fallback()) || (FOCUS_LISTS[note.scope] && document.querySelector(FOCUS_LISTS[note.scope]));
+      if (target) target.focus();
+    }
+
+    function redraw(draw, fallback) {
+      const note = noteFocus();
+      draw();
+      putFocusBack(note, fallback);
+    }
+
     // --- Who is here ----------------------------------------------------------
     function renderSession() {
       const box = document.getElementById("community-session");
       box.replaceChildren();
       if (state.user) {
         box.append(
-          el("span", { className: "account-avatar", "aria-hidden": "true", text: state.user.name.charAt(0).toUpperCase() }),
+          el("span", { className: "account-avatar", "aria-hidden": "true", text: initial(state.user.name) }),
           el("span", {}, [
             document.createTextNode("Logged in as "),
             el("strong", { text: state.user.name }),
             isAdmin(state.user) ? el("span", { className: "role-badge", text: "Admin" }) : null,
           ]),
-          el("button", { type: "button", className: "text-button", id: "community-log-out", text: "Log out", onclick: () => {
+          el("button", { type: "button", className: "text-button", id: "community-log-out", "data-focus": "log-out", text: "Log out", onclick: () => {
             logOut();
-            refreshUser();
+            reload(false);
+            renderAll(); // focus moves to the new "Log in" link
             announce("You have logged out.");
           } })
         );
@@ -725,11 +825,19 @@
       }
     }
 
-    function refreshUser() {
+    // Reads who is logged in (and, with everything, the meet-ups and posts) from storage
+    // again. Half-written replies belong to the person who wrote them, so they are
+    // dropped when someone else logs in.
+    function reload(everything) {
+      const before = state.user ? state.user.id : null;
       state.users = loadUsers();
+      if (everything) {
+        state.events = loadEvents();
+        state.posts = loadPosts();
+      }
       state.user = currentUser(state.users);
+      if ((state.user ? state.user.id : null) !== before) replyDrafts.clear();
       updateAccountLink();
-      renderAll();
     }
 
     // --- Calendar -------------------------------------------------------------
@@ -742,7 +850,10 @@
 
     function renderCalendar(focusSelected) {
       const month = state.month;
-      monthTitle.textContent = MONTH_YEAR.format(month);
+      // The heading is a live region: only change it when the month changes, or screen
+      // readers would say the same month again after every click.
+      const monthLabel = MONTH_YEAR.format(month);
+      if (monthTitle.textContent !== monthLabel) monthTitle.textContent = monthLabel;
       // Weeks start on Monday. getDay() counts from Sunday, so shift it by one.
       const offset = (month.getDay() + 6) % 7;
       const first = new Date(month.getFullYear(), month.getMonth(), 1 - offset);
@@ -770,6 +881,7 @@
             type: "button",
             className: "calendar-day" + (iso === todayISO ? " is-today" : "") + (dayEvents.length ? " has-events" : "") + (iso < todayISO ? " is-past" : ""),
             "data-date": iso,
+            "data-focus": "day:" + iso,
             "aria-label": label,
             "aria-pressed": String(iso === state.selected),
             tabindex: iso === state.selected ? "0" : "-1",
@@ -780,8 +892,9 @@
           ]);
           cells.push(el("td", { className: "calendar-cell" }, [button]));
         }
-        // Skip a sixth row that lies wholly in the next month.
-        if (week === 5 && cells.every((cell) => cell.classList.contains("is-outside"))) break;
+        // Stop at a row that lies wholly in the next month. Most months need five or six
+        // rows, but a 28-day February that starts on a Monday fills exactly four.
+        if (cells.every((cell) => cell.classList.contains("is-outside"))) break;
         rows.push(el("tr", {}, cells));
       }
       calendarBody.replaceChildren(...rows);
@@ -813,9 +926,11 @@
     document.getElementById("calendar-next").addEventListener("click", () => moveMonth(1));
     document.getElementById("calendar-today").addEventListener("click", () => selectDay(toISO(today()), true));
 
+    // Drawing the month replaces the buttons, so the chosen day takes focus again: without
+    // that, Enter or Space on a day (which also clicks it) would drop keyboard focus.
     calendarBody.addEventListener("click", (event) => {
       const button = event.target.closest(".calendar-day");
-      if (button) selectDay(button.dataset.date, false);
+      if (button) selectDay(button.dataset.date, true);
     });
 
     // Arrow keys move a day or a week, Home and End go to the start or end of the week,
@@ -847,31 +962,39 @@
 
     function eventCard(event, options) {
       const going = state.user && event.going.includes(state.user.id);
+      const started = hasStarted(event);
+      const pending = event.status === "pending";
       const actions = [];
-      if (event.status === "approved" && state.user && event.date >= toISO(today())) {
+      if (!pending && state.user && !started) {
         actions.push(el("button", {
           type: "button",
           className: "chip-button" + (going ? " is-on" : ""),
+          "data-focus": "going:" + event.id,
           "aria-pressed": String(!!going),
           text: going ? "You’re going" : "I’m going",
           onclick: () => toggleGoing(event.id),
         }));
       }
-      if (event.status === "pending" && isAdmin(state.user)) {
-        actions.push(el("button", { type: "button", className: "chip-button is-on", text: "Approve", onclick: () => approveEvent(event.id) }));
+      if (pending && isAdmin(state.user) && !started) {
+        actions.push(el("button", { type: "button", className: "chip-button is-on", "data-focus": "approve:" + event.id, text: "Approve", onclick: () => approveEvent(event.id) }));
       }
       if (canDelete(event)) {
-        const verb = event.status === "pending" && event.authorId !== state.user.id ? "Decline" : "Delete";
-        actions.push(el("button", { type: "button", className: "text-button text-button--muted", text: verb, "aria-label": verb + " the meet-up “" + event.title + "”", onclick: () => deleteEvent(event.id, verb) }));
+        // An admin declines someone else's suggestion, or removes one whose time has
+        // passed before anyone approved it.
+        const verb = pending && event.authorId !== state.user.id ? (started ? "Remove" : "Decline") : "Delete";
+        actions.push(el("button", { type: "button", className: "text-button text-button--muted", "data-focus": "delete:" + event.id, text: verb, "aria-label": verb + " the meet-up “" + event.title + "”", onclick: () => deleteEvent(event.id, verb) }));
       }
+      let note = "";
+      if (pending && started) note = "Not approved before it was due to start, so it will not go on the calendar.";
+      else if (pending) note = state.user && event.authorId === state.user.id
+        ? "Waiting for an admin to approve it. Only you and the admins can see it."
+        : "Waiting for approval. Only admins and the person who suggested it can see it.";
       const when = [options && options.withDate ? DATE_SHORT.format(fromISO(event.date)) : "", event.time, event.place].filter(Boolean).join(" · ");
-      return el("li", { className: "event-card" + (event.status === "pending" ? " is-pending" : "") + (event.date < toISO(today()) ? " is-past" : "") }, [
+      return el("li", { className: "event-card" + (pending ? " is-pending" : "") + (started ? " is-past" : ""), "data-focus-item": event.id }, [
         when ? el("p", { className: "event-when", text: when }) : null,
         el(options && options.heading ? options.heading : "h4", { className: "event-title", text: event.title }),
-        event.status === "pending" ? el("p", { className: "pending-note", text: state.user && event.authorId === state.user.id
-          ? "Waiting for an admin to approve it. Only you and the admins can see it."
-          : "Waiting for approval. Only admins and the person who suggested it can see it." }) : null,
-        event.details ? el("p", { className: "event-details", text: event.details }) : null,
+        note ? el("p", { className: "pending-note", text: note }) : null,
+        event.details ? el("div", { className: "event-details" }, paragraphs(event.details)) : null,
         el("p", { className: "event-meta" }, [
           document.createTextNode("Suggested by " + authorName(state.users, event.authorId)),
           roleBadge(state.users, event.authorId),
@@ -915,6 +1038,7 @@
       const fail = (input, message) => { setFieldError(input, message); first = first || input; };
       if (!title.value.trim()) fail(title, "Give the meet-up a name.");
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time.value)) fail(time, "Choose a start time.");
+      else if (state.selected === toISO(today()) && time.value <= nowTime()) fail(time, "That time has already passed today. Choose a later time.");
       if (!place.value.trim()) fail(place, "Say where it will be.");
       if (first) {
         showFormError(eventError, "Please fix the boxes marked above.");
@@ -952,7 +1076,7 @@
 
     function approveEvent(id) {
       const event = state.events.find((item) => item.id === id);
-      if (!event || !isAdmin(state.user)) return;
+      if (!event || !isAdmin(state.user) || hasStarted(event)) return;
       event.status = "approved";
       persist("events");
       renderAll();
@@ -966,21 +1090,20 @@
       state.events = state.events.filter((item) => item.id !== id);
       persist("events");
       renderAll();
-      announce(verb === "Decline" ? "Meet-up declined and removed." : "Meet-up deleted.");
+      announce({ Decline: "Meet-up declined and removed.", Remove: "Meet-up removed." }[verb] || "Meet-up deleted.");
     }
 
     // --- Coming up -----------------------------------------------------------------
     function renderUpcoming() {
       const list = document.getElementById("upcoming-events");
-      const todayISO = toISO(today());
       const upcoming = state.events
-        .filter((event) => event.date >= todayISO && canSee(event))
+        .filter((event) => !hasStarted(event) && canSee(event))
         .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
         .slice(0, 6);
       list.replaceChildren(...upcoming.map((event) => {
         const card = eventCard(event, { withDate: true });
         const title = card.querySelector(".event-title");
-        const link = el("button", { type: "button", className: "event-jump", text: event.title, "aria-label": event.title + ": show " + DATE_LONG.format(fromISO(event.date)) + " on the calendar", onclick: () => {
+        const link = el("button", { type: "button", className: "event-jump", "data-focus": "jump:" + event.id, text: event.title, "aria-label": event.title + ": show " + DATE_LONG.format(fromISO(event.date)) + " on the calendar", onclick: () => {
           selectDay(event.date, true);
         } });
         title.replaceChildren(link);
@@ -1072,20 +1195,20 @@
     function postCard(post) {
       const actions = [];
       if (isAdmin(state.user)) {
-        actions.push(el("button", { type: "button", className: "text-button", text: post.pinned ? "Unpin" : "Pin to top", "aria-label": (post.pinned ? "Unpin “" : "Pin “") + post.title + "”", onclick: () => togglePin(post.id) }));
+        actions.push(el("button", { type: "button", className: "text-button", "data-focus": "pin:" + post.id, text: post.pinned ? "Unpin" : "Pin to top", "aria-label": (post.pinned ? "Unpin “" : "Pin “") + post.title + "”", onclick: () => togglePin(post.id) }));
       }
       if (canDelete(post)) {
-        actions.push(el("button", { type: "button", className: "text-button text-button--muted", text: "Delete", "aria-label": "Delete the post “" + post.title + "”", onclick: () => deletePost(post.id) }));
+        actions.push(el("button", { type: "button", className: "text-button text-button--muted", "data-focus": "delete-post:" + post.id, text: "Delete", "aria-label": "Delete the post “" + post.title + "”", onclick: () => deletePost(post.id) }));
       }
 
-      const replies = el("ol", { className: "reply-list" }, post.replies.slice().sort((a, b) => a.created - b.created).map((reply) => el("li", { className: "reply" }, [
+      const replies = el("ol", { className: "reply-list", id: "replies-" + post.id, "data-focus-scope": true }, post.replies.slice().sort((a, b) => a.created - b.created).map((reply) => el("li", { className: "reply", "data-focus-item": reply.id }, [
         el("p", { className: "post-meta" }, [
           el("strong", { text: authorName(state.users, reply.authorId) }),
           roleBadge(state.users, reply.authorId),
           document.createTextNode(" · " + timeAgo(reply.created)),
         ]),
         el("div", { className: "post-body" }, paragraphs(reply.body)),
-        canDelete(reply) ? el("button", { type: "button", className: "text-button text-button--muted", text: "Delete reply", "aria-label": "Delete this reply by " + authorName(state.users, reply.authorId), onclick: () => deleteReply(post.id, reply.id) }) : null,
+        canDelete(reply) ? el("button", { type: "button", className: "text-button text-button--muted", "data-focus": "delete-reply:" + reply.id, text: "Delete reply", "aria-label": "Delete this reply by " + authorName(state.users, reply.authorId), onclick: () => deleteReply(post.id, reply.id) }) : null,
       ])));
 
       let replyForm = null;
@@ -1094,10 +1217,17 @@
         replyForm = el("form", { className: "reply-form", noValidate: true }, [
           el("div", { className: "form-field" }, [
             el("label", { for: fieldId, text: "Your reply" }),
-            el("textarea", { id: fieldId, rows: 2, maxLength: LIMITS.reply, "aria-describedby": fieldId + "-error" }),
+            // Every post card is drawn again whenever anything on the page changes, so a
+            // half-written reply is kept aside and put back each time.
+            el("textarea", { id: fieldId, rows: 2, maxLength: LIMITS.reply, "aria-describedby": fieldId + "-error", "data-focus": "reply-field:" + post.id,
+              value: replyDrafts.get(post.id) || "",
+              oninput: (event) => {
+                if (event.target.value.trim()) replyDrafts.set(post.id, event.target.value);
+                else replyDrafts.delete(post.id);
+              } }),
             el("p", { className: "field-error", id: fieldId + "-error", hidden: true }),
           ]),
-          el("button", { type: "submit", className: "button button--small", text: "Reply" }),
+          el("button", { type: "submit", className: "button button--small", "data-focus": "reply-send:" + post.id, text: "Reply" }),
         ]);
         replyForm.addEventListener("submit", (event) => {
           event.preventDefault();
@@ -1113,7 +1243,7 @@
 
       const count = post.replies.length;
       const details = el("details", { className: "post-replies", "data-post": post.id }, [
-        el("summary", { text: count ? count + (count === 1 ? " reply" : " replies") : state.user ? "Reply" : "No replies yet" }),
+        el("summary", { "data-focus": "replies:" + post.id, text: count ? count + (count === 1 ? " reply" : " replies") : state.user ? "Reply" : "No replies yet" }),
         count ? replies : null,
         replyForm || (count ? null : el("p", { className: "empty-state" }, [el("a", { href: "account.html#log-in", text: "Log in" }), document.createTextNode(" to reply.")])),
       ]);
@@ -1123,13 +1253,13 @@
         else openReplies.delete(post.id);
       });
 
-      return el("li", { className: "post-card" + (post.pinned ? " is-pinned" : ""), id: "post-" + post.id }, [
+      return el("li", { className: "post-card" + (post.pinned ? " is-pinned" : ""), id: "post-" + post.id, "data-focus-item": post.id }, [
         el("article", { "aria-labelledby": "post-" + post.id + "-title" }, [
           el("p", { className: "post-tags" }, [
             el("span", { className: "topic-tag", "data-topic": post.topic.toLowerCase().replace(/\s+/g, "-"), text: post.topic }),
             post.pinned ? el("span", { className: "pin-tag", text: "Pinned" }) : null,
           ]),
-          el("h3", { className: "post-title", id: "post-" + post.id + "-title", tabindex: "-1", text: post.title }),
+          el("h3", { className: "post-title", id: "post-" + post.id + "-title", tabindex: "-1", "data-focus": "title:" + post.id, text: post.title }),
           el("p", { className: "post-meta" }, [
             el("strong", { text: authorName(state.users, post.authorId) }),
             roleBadge(state.users, post.authorId),
@@ -1142,12 +1272,14 @@
       ]);
     }
     const openReplies = new Set();
+    const replyDrafts = new Map(); // post id -> the reply being written
 
     function addReply(postId, text) {
       const post = state.posts.find((item) => item.id === postId);
       if (!post || !state.user) return;
       post.replies.push({ id: newId("r"), body: text.trim().slice(0, LIMITS.reply), authorId: state.user.id, created: Date.now() });
       openReplies.add(postId);
+      replyDrafts.delete(postId);
       persist("posts");
       renderPosts();
       announce("Reply added.");
@@ -1171,6 +1303,7 @@
       if (!post || !canDelete(post)) return;
       if (!window.confirm("Delete the post “" + post.title + "” and its replies? This cannot be undone.")) return;
       state.posts = state.posts.filter((item) => item.id !== postId);
+      replyDrafts.delete(postId);
       persist("posts");
       renderPosts();
       announce("Post deleted.");
@@ -1184,7 +1317,8 @@
       if (!window.confirm("Delete this reply? This cannot be undone.")) return;
       post.replies = post.replies.filter((item) => item.id !== replyId);
       persist("posts");
-      renderPosts();
+      // Focus moves to the next reply's button or, after the last one, to the reply box.
+      redraw(renderPosts, () => document.getElementById("reply-" + postId) || document.querySelector("#post-" + postId + " summary"));
       announce("Reply deleted.");
     }
 
@@ -1194,7 +1328,10 @@
       section.hidden = !isAdmin(state.user);
       if (section.hidden) return;
 
-      const pending = state.events.filter((event) => event.status === "pending").sort((a, b) => a.date.localeCompare(b.date));
+      // Suggestions that can still be approved come first; ones whose time has passed wait
+      // at the end for an admin to remove them.
+      const pending = state.events.filter((event) => event.status === "pending")
+        .sort((a, b) => (hasStarted(a) - hasStarted(b)) || (a.date + a.time).localeCompare(b.date + b.time));
       document.getElementById("pending-events").replaceChildren(...pending.map((event) => eventCard(event, { withDate: true })));
       document.getElementById("pending-empty").hidden = pending.length > 0;
 
@@ -1205,13 +1342,14 @@
         const button = isSelf ? el("span", { className: "member-self", text: "You" }) : el("button", {
           type: "button",
           className: "text-button",
+          "data-focus": "role:" + user.id,
           text: isAdmin(user) ? "Make member" : "Make admin",
           "aria-label": (isAdmin(user) ? "Make " + user.name + " a member" : "Make " + user.name + " an admin"),
           disabled: waiting,
           title: waiting ? "A group admin keeps the role until they register" : null,
           onclick: () => toggleRole(user.id),
         });
-        return el("tr", {}, [
+        return el("tr", { "data-focus-item": user.id }, [
           el("th", { scope: "row", text: user.name }),
           el("td", { text: "@" + user.username }),
           el("td", {}, [isAdmin(user) ? el("span", { className: "role-badge", text: "Admin" }) : document.createTextNode("Member")]),
@@ -1232,24 +1370,29 @@
     }
 
     // --- Everything together -----------------------------------------------------------
-    function renderAll() {
-      renderSession();
-      renderCalendar(false);
-      renderDay();
-      renderUpcoming();
-      renderPostForm();
-      renderPosts();
-      renderAdmin();
+    function renderAll(fallback) {
+      redraw(() => {
+        renderSession();
+        renderCalendar(false);
+        renderDay();
+        renderUpcoming();
+        renderPostForm();
+        renderPosts();
+        renderAdmin();
+      }, fallback);
     }
 
-    // Another tab may log in, log out or post: keep this one in step.
+    // Another tab may log in, log out or post: keep this one in step. A key of null means
+    // another tab cleared this site's storage. The browser may also show this page again
+    // from its back/forward cache, as it was before the visitor went elsewhere.
     window.addEventListener("storage", (event) => {
-      if (!event.key || !Object.values(KEYS).includes(event.key)) return;
-      state.users = loadUsers();
-      state.events = loadEvents();
-      state.posts = loadPosts();
-      state.user = currentUser(state.users);
-      updateAccountLink();
+      if (event.key && !Object.values(KEYS).includes(event.key)) return;
+      reload(true);
+      renderAll();
+    });
+    window.addEventListener("pageshow", (event) => {
+      if (!event.persisted) return;
+      reload(true);
       renderAll();
     });
 
@@ -1268,6 +1411,15 @@
   updateAccountLink();
   setUpAccountPage();
   setUpCommunityPage();
+
+  // Every page: keep the header's account link right when another tab logs in or out,
+  // and when the browser shows a page again from its back/forward cache.
+  window.addEventListener("storage", (event) => {
+    if (!event.key || event.key === KEYS.session || event.key === KEYS.users) updateAccountLink();
+  });
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) updateAccountLink();
+  });
 
   // For the tests: the hash function, checked against the published SHA-256 examples.
   window.BeforeLandfallCommunity = { sha256 };
