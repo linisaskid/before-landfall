@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const { PAGES, test, assert, openPage, nextLoad, errorsIn, fire, setValue, key, sleep, frames, random } = window.Harness;
+  const { PAGES, test, assert, getText, openPage, nextLoad, errorsIn, fire, setValue, key, sleep, frames, random } = window.Harness;
 
   const WIDTHS = [320, 390, 768, 1024, 1440];
   const STAGE_NAMES = { evacuate: "Evacuate now", prepare: "Prepare to leave", alert: "Stay alert" };
@@ -23,6 +23,14 @@
   const noErrors = (page, label) => assert.none(errorsIn(page), (label ? label + ": " : "") + "errors in the page");
   const store = (name, value) => localStorage.setItem(name, typeof value === "string" ? value : JSON.stringify(value));
   const stored = (name) => JSON.parse(localStorage.getItem(name));
+  // Records the sounds a page plays, as "name" or "name:arg". The returned function hands back
+  // the sounds played since it was last called.
+  function soundsOf(page) {
+    const heard = [];
+    const play = page.win.Sound.play;
+    page.win.Sound.play = (name, arg) => { heard.push(arg === undefined ? name : name + ":" + arg); play(name, arg); };
+    return () => heard.splice(0);
+  }
 
   // Scripts placed at the top of <head> before the page's own code runs.
   const fakeToday = (y, m, d) =>
@@ -202,16 +210,79 @@
     button.click();
     assert.equal(button.getAttribute("aria-pressed"), "true");
     assert.equal(localStorage.getItem("sound"), null);
-    const calls = [["tick", 1.1], ["click"], ["select", 1.2], ["toggle", "down"], ["toggle", "up"], ["toggle", "mid"], ["push"], ["pop"],
+    const calls = [["tick", 1.1], ["select", 1.2], ["toggle", "down"], ["toggle", "up"], ["toggle", "mid"], ["push"], ["pop"],
       ["stage", "alert"], ["stage", "prepare"], ["stage", "evacuate"], ["stage", "nope"], ["category", 0], ["category", 9], ["category", "x"],
       ["success"], ["complete"], ["nudge"], ["add"], ["remove"], ["sweep"], ["check", true], ["check", false], ["no-such-sound"]];
     for (let round = 0; round < 3; round += 1) calls.forEach(([name, arg]) => page.win.Sound.play(name, arg));
     await sleep(300);
     noErrors(page);
 
+    // Links load the next page straight away: sound never holds a page change back.
+    let held = null;
+    page.win.addEventListener("click", (event) => { held = event.defaultPrevented; event.preventDefault(); }, { once: true });
+    page.$('a[href="cyclones.html"]').click();
+    assert.equal(held, false, "a link to another page should not wait for a sound");
+
     store("sound", "off");
     const muted = await openPage("index.html");
     assert.equal(muted.$("#sound-toggle").getAttribute("aria-pressed"), "false", "a saved 'off' is remembered");
+  });
+
+  test("site: every sound is as loud the first time as later, everyday sounds stay below rare ones, and nothing clips", async () => {
+    // Render the real sound.js offline and measure each sound's peak in dBFS. Every render gets
+    // its own copy of sound.js in a blank frame, and the same seeded Math.random, so a sound
+    // played at the start and one played a second later should match sample for sample.
+    const source = await getText("sound.js");
+    const page = await openPage("index.html", { transform: () => "<!DOCTYPE html><html><head><title>Sound levels</title></head><body></body></html>" });
+    const win = page.win;
+    async function peakOf(plays, seconds) {
+      let seed = 1;
+      win.Math.random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+      let ctx = null;
+      win.AudioContext = function () { ctx = new win.OfflineAudioContext(1, Math.round(48000 * seconds), 48000); return ctx; };
+      win.localStorage.removeItem("sound");
+      win.eval(source);
+      win.dispatchEvent(new win.PointerEvent("pointerdown")); // creates the context, as a visitor's first tap does
+      const resume = ctx.resume.bind(ctx);
+      ctx.resume = () => Promise.resolve(); // rendering must not restart while a sound is still being scheduled
+      new Set(plays.map(([time]) => time)).forEach((time) => {
+        const playNow = () => plays.filter((play) => play[0] === time).forEach(([, name, arg]) => win.Sound.play(name, arg));
+        if (time === 0) playNow();
+        else ctx.suspend(time).then(() => { playNow(); resume(); });
+      });
+      const data = (await ctx.startRendering()).getChannelData(0);
+      let peak = 0;
+      for (let i = 0; i < data.length; i += 1) peak = Math.max(peak, Math.abs(data[i]));
+      return 20 * Math.log10(peak);
+    }
+
+    const everyday = [["tick", 1], ["select"], ["add"], ["remove"]];
+    const rare = [["stage", "alert"], ["stage", "prepare"], ["stage", "evacuate"], ["success"], ["complete"]];
+    const others = [["check", true], ["check", false], ["sweep"], ["push"], ["pop"], ["toggle", "up"], ["toggle", "down"], ["toggle", "mid"],
+      ["category", 1], ["category", 5], ["nudge"]];
+    const label = ([name, arg]) => name + (arg === undefined ? "" : "(" + arg + ")");
+    const levels = new Map();
+    const problems = [];
+    for (const sound of everyday.concat(rare, others)) {
+      const first = await peakOf([[0, ...sound]], 1.2);
+      const later = await peakOf([[1, ...sound]], 2.2);
+      levels.set(label(sound), later);
+      if (Math.abs(first - later) > 0.5) problems.push(label(sound) + " peaks at " + first.toFixed(1) + " dBFS the first time but " + later.toFixed(1) + " dBFS later");
+      if (later > -6) problems.push(label(sound) + " peaks at " + later.toFixed(1) + " dBFS, too close to clipping");
+      if (!(later > -40)) problems.push(label(sound) + " peaks at " + later.toFixed(1) + " dBFS, too quiet to hear");
+    }
+    assert.none(problems, "sound levels");
+
+    const loudestEveryday = Math.max(...everyday.map((sound) => levels.get(label(sound))));
+    const quietestRare = Math.min(...rare.map((sound) => levels.get(label(sound))));
+    assert.ok(loudestEveryday <= quietestRare - 4, "everyday sounds (loudest " + loudestEveryday.toFixed(1) + " dBFS) should sit at least 4 dB below rare ones (quietest " + quietestRare.toFixed(1) + " dBFS)");
+
+    // A visitor tapping as fast as they can still never drives the output near clipping.
+    const tappedStages = await peakOf([0, 0.08, 0.16, 0.24, 0.32, 0.4].map((time) => [time, "stage", "evacuate"]), 2);
+    const tappedChecklist = await peakOf([0, 0.1, 0.2, 0.3].map((time) => [time, "complete"]), 2);
+    assert.ok(tappedStages <= -3, "\"Evacuate now\" tapped six times in half a second peaks at " + tappedStages.toFixed(1) + " dBFS");
+    assert.ok(tappedChecklist <= -3, "the checklist finished four times in 0.4 s peaks at " + tappedChecklist.toFixed(1) + " dBFS");
+    noErrors(page);
   });
 
   test("site: the header collapses on scroll on wide screens and stays compact on narrow ones", async () => {
@@ -1111,13 +1182,16 @@
     page = await nextLoad(page);
 
     page = await openPage("account.html");
+    const sounds = soundsOf(page);
     assert.ok(!page.$("#signed-in-card").hidden && page.$("#account-forms").hidden, "a logged-in visitor sees who they are");
     page.$("#log-out-button").click();
     assert.equal(localStorage.getItem(COMMUNITY.session), null, "log out forgets the session");
     assert.ok(!page.$("#account-forms").hidden, "the forms come back");
+    assert.deepEqual(sounds(), ["pop"], "logging out");
 
     submit(page, "login-form");
     assert.match(fieldError(page, "login-id"), /username or email/);
+    assert.deepEqual(sounds(), ["nudge"], "an empty log-in form");
     setValue(page.$("#login-id"), "ko_test");
     setValue(page.$("#login-password"), "wrong-pass1");
     submit(page, "login-form");
@@ -1127,16 +1201,19 @@
     setValue(page.$("#login-password"), "surge2026a");
     submit(page, "login-form");
     assert.match(text(page.$("#login-error")), /do not match/, "an unknown name gets the same message");
+    assert.deepEqual(sounds(), ["nudge", "nudge"], "a wrong password and an unknown name");
 
     page.$("#login-password").type = "password";
     page.$("[data-password-toggle][aria-controls='login-password']").click();
     assert.equal(page.$("#login-password").type, "text", "Show reveals the password");
     assert.equal(text(page.$("[data-password-toggle][aria-controls='login-password'] .toggle-word")), "Hide");
+    assert.deepEqual(sounds(), ["toggle:up"], "showing the password");
 
     setValue(page.$("#login-id"), "KO@example.com");
     setValue(page.$("#login-password"), "surge2026a");
     page.$("#login-remember").click();
     submit(page, "login-form");
+    assert.deepEqual(sounds(), [], "logging in loads another page, so it stays silent");
     page = await nextLoad(page);
     assert.equal(localStorage.getItem(COMMUNITY.session), null, "unticked: not kept in localStorage");
     assert.ok(sessionStorage.getItem(COMMUNITY.session), "unticked: kept for this tab only");
@@ -1147,6 +1224,7 @@
   test("community: guests can read, and the calendar moves by click, button and keyboard", async () => {
     const page = await openPage("community.html");
     const { win } = page;
+    const sounds = soundsOf(page);
     assert.ok(page.$("#post-form").hidden && !page.$("#post-prompt").hidden, "guests are asked to log in to post");
     assert.ok(page.$("#event-form").hidden, "guests cannot suggest meet-ups");
     assert.ok(page.$$("#post-list .post-card").length >= 4, "the sample posts show");
@@ -1171,9 +1249,13 @@
     assert.ok(text(page.$("#calendar-month")) !== before, "PageDown shows another month");
     page.$("#calendar-today").click();
     assert.equal(selected(), isoDay(win, 0), "Today comes back");
+    assert.deepEqual(sounds(), ["select", "select", "select", "select"], "each new day chosen by key or button");
+    page.$("#calendar-today").click();
+    assert.deepEqual(sounds(), [], "choosing the day already chosen");
     page.$("#calendar-prev").click();
     page.$("#calendar-next").click();
     assert.equal(text(page.$("#calendar-month")), monthName, "back and forward return to this month");
+    assert.deepEqual(sounds(), ["pop", "push"], "a month back, then forward");
 
     const fanMeet = isoDay(win, 4);
     if (!page.$('[data-date="' + fanMeet + '"]')) page.$("#calendar-next").click();
@@ -1187,11 +1269,13 @@
     signedIn(person("u-tester", "Tester", "member"));
     let page = await openPage("community.html");
     page.win.confirm = () => true;
+    const sounds = soundsOf(page);
     assert.ok(!page.$("#post-form").hidden, "members can post");
     assert.ok(page.$('#new-post-topic option[value="Notice"]').disabled, "only admins can post a notice");
 
     submit(page, "post-form");
     assert.ok(fieldError(page, "new-post-title") && fieldError(page, "new-post-body"), "empty posts are refused");
+    assert.deepEqual(sounds(), ["nudge"], "an empty post");
     setValue(page.$("#new-post-title"), '<img src=x onerror="window.__hacked=1"> Surge facts');
     setValue(page.$("#new-post-body"), "First <b>paragraph</b>.\n\nSecond paragraph.");
     setValue(page.$("#new-post-topic"), "History", ["change"]);
@@ -1202,6 +1286,7 @@
     assert.equal(page.$$("#post-list img, #post-list b").length, 0, "no HTML from the post is built");
     assert.equal(card.querySelectorAll(".post-body > p").length, 2, "blank lines make paragraphs");
     assert.ok(!page.win.__hacked);
+    assert.deepEqual(sounds(), ["add"], "a new post");
 
     const details = card.querySelector("details");
     details.open = true;
@@ -1209,10 +1294,12 @@
     details.querySelector("form button").click();
     const posts = stored(COMMUNITY.posts);
     assert.deepEqual(posts.find((post) => /Surge facts/.test(post.title)).replies.map((reply) => reply.body), ["A reply from me"]);
+    assert.deepEqual(sounds(), ["add"], "a reply");
 
     const day = isoDay(page.win, 2);
     if (!page.$('[data-date="' + day + '"]')) page.$("#calendar-next").click();
     page.$('[data-date="' + day + '"]').click();
+    sounds(); // choosing the day is checked in the calendar test
     submit(page, "event-form");
     assert.ok(fieldError(page, "meetup-title") && fieldError(page, "meetup-time") && fieldError(page, "meetup-place"), "a meet-up needs a name, time and place");
     setValue(page.$("#meetup-title"), "Rain gauge club");
@@ -1222,10 +1309,25 @@
     const saved = stored(COMMUNITY.events).find((event) => event.title === "Rain gauge club");
     assert.ok(saved && saved.status === "pending" && saved.date === day, "a member's meet-up waits for approval");
     assert.ok(page.$("#day-events .event-card.is-pending"), "the person who suggested it can see it");
+    assert.deepEqual(sounds(), ["nudge", "add"], "an incomplete meet-up, then a complete one");
 
     page.$$("#day-events .event-card .text-button").find((button) => text(button) === "Delete").click();
     assert.ok(!stored(COMMUNITY.events).some((event) => event.title === "Rain gauge club"), "members can delete their own meet-up");
     assert.equal(page.$$("#post-list .post-card").filter((item) => !/Surge facts/.test(text(item))).flatMap((item) => Array.from(item.querySelectorAll(".post-actions .text-button"))).length, 0, "no delete buttons on other people's posts");
+    assert.deepEqual(sounds(), ["remove"], "deleting a meet-up");
+
+    const fanMeet = isoDay(page.win, 4);
+    if (!page.$('[data-date="' + fanMeet + '"]')) page.$("#calendar-next").click();
+    page.$('[data-date="' + fanMeet + '"]').click();
+    sounds();
+    const goingButton = () => page.$$("#day-events .event-card").find((item) => /fan meet/.test(text(item))).querySelector(".chip-button");
+    const wasGoing = goingButton().getAttribute("aria-pressed") === "true";
+    goingButton().click();
+    goingButton().click();
+    assert.deepEqual(sounds(), ["check:" + !wasGoing, "check:" + wasGoing], "saying you are going, and changing your mind");
+
+    page.$("#community-log-out").click();
+    assert.deepEqual(sounds(), ["pop"], "logging out");
     noErrors(page);
   });
 
@@ -1237,6 +1339,7 @@
     ]);
     const page = await openPage("community.html");
     page.win.confirm = () => true;
+    const sounds = soundsOf(page);
     const firstTitle = () => text(page.$("#post-list .post-title"));
     assert.ok(!page.$("#admin-tools").hidden, "admins see the admin tools");
     assert.ok(!page.$('#new-post-topic option[value="Notice"]').disabled, "admins can post a notice");
@@ -1261,6 +1364,7 @@
     page.$('#member-rows button[aria-label="Make Pupil an admin"]').click();
     assert.equal(stored(COMMUNITY.users).find((user) => user.id === "u-pupil").role, "admin");
     assert.ok(rows().some((row) => /^Boss.*You$/.test(row)), "admins cannot change their own role");
+    assert.deepEqual(sounds(), ["check:true", "remove", "add", "check:true"], "pin, delete, approve, make an admin");
 
     noErrors(page);
   });
