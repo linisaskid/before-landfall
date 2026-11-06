@@ -1,13 +1,5 @@
 @font-face {
   font-family: "Fall Sans";
-  src: url("fonts/fall-sans-text-light.woff2") format("woff2");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fall Sans";
   src: url("fonts/fall-sans-text-regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
@@ -32,14 +24,6 @@
 
 @font-face {
   font-family: "Fall Sans";
-  src: url("fonts/fall-sans-text-mediumitalic.woff2") format("woff2");
-  font-weight: 500;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fall Sans";
   src: url("fonts/fall-sans-text-semibold.woff2") format("woff2");
   font-weight: 600;
   font-style: normal;
@@ -56,72 +40,8 @@
 
 @font-face {
   font-family: "Fall Sans";
-  src: url("fonts/fall-sans-text-bolditalic.woff2") format("woff2");
-  font-weight: 700;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fall Sans";
   src: url("fonts/fall-sans-text-extrabold.woff2") format("woff2");
   font-weight: 800;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fall Sans";
-  src: url("fonts/fall-sans-text-extrabolditalic.woff2") format("woff2");
-  font-weight: 800;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fall Sans Display";
-  src: url("fonts/fall-sans-display-light.woff2") format("woff2");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fall Sans Display";
-  src: url("fonts/fall-sans-display-regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fall Sans Display";
-  src: url("fonts/fall-sans-display-regularitalic.woff2") format("woff2");
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fall Sans Display";
-  src: url("fonts/fall-sans-display-medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fall Sans Display";
-  src: url("fonts/fall-sans-display-mediumitalic.woff2") format("woff2");
-  font-weight: 500;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fall Sans Display";
-  src: url("fonts/fall-sans-display-semibold.woff2") format("woff2");
-  font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
@@ -136,25 +56,9 @@
 
 @font-face {
   font-family: "Fall Sans Display";
-  src: url("fonts/fall-sans-display-bolditalic.woff2") format("woff2");
-  font-weight: 700;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fall Sans Display";
   src: url("fonts/fall-sans-display-extrabold.woff2") format("woff2");
   font-weight: 800;
   font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fall Sans Display";
-  src: url("fonts/fall-sans-display-extrabolditalic.woff2") format("woff2");
-  font-weight: 800;
-  font-style: italic;
   font-display: swap;
 }
 
@@ -201,13 +105,6 @@
   --space-7: 56px;
   --space-8: 64px;
   --space-9: 72px;
-  --space-10: 80px;
-  --space-11: 88px;
-  --space-12: 96px;
-  --space-13: 104px;
-  --space-14: 112px;
-  --space-15: 120px;
-  --space-16: 128px;
   --inset: var(--space-3);
   --radius: 24px;
   --radius-pill: 999px;

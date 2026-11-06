@@ -286,6 +286,5 @@
   window.Sound = {
     play: play,
     get enabled() { return enabled; },
-    setEnabled: setEnabled,
   };
 })();
