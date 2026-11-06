@@ -357,6 +357,10 @@
   // 5. Small helpers for building the page
   // ==========================================================================
 
+  // Interface sounds from sound.js, with the same meanings as on the other pages. Anything
+  // that loads another page (logging in, registering) stays silent, as links do.
+  const sound = (name, arg) => { if (window.Sound) window.Sound.play(name, arg); };
+
   // Builds an element. Text always goes in as text (never as HTML), so nothing a
   // visitor types can add links, scripts or styles to the page.
   function el(tag, props, children) {
@@ -473,6 +477,7 @@
     document.getElementById("log-out-button").addEventListener("click", () => {
       logOut();
       showState();
+      sound("pop");
       document.getElementById("login-id").focus();
     });
 
@@ -490,6 +495,7 @@
         setFieldError(empty, !id ? "Enter your username or email." : "Enter your password.");
         showFormError(loginError, "");
         empty.focus();
+        sound("nudge");
         return;
       }
       const users = loadUsers();
@@ -500,10 +506,12 @@
         showFormError(loginError, "That username and password do not match. Check them and try again.");
         passwordInput.value = "";
         passwordInput.focus();
+        sound("nudge");
         return;
       }
       if (!logIn(user, document.getElementById("login-remember").checked)) {
         showFormError(loginError, "Your browser is blocking storage, so you cannot stay logged in on this site.");
+        sound("nudge");
         return;
       }
       showFormError(loginError, "");
@@ -611,6 +619,7 @@
       if (first) {
         showFormError(registerError, "Please fix the boxes marked above.");
         first.focus();
+        sound("nudge");
         return;
       }
       const salt = newId("s").replace(/[^0-9a-f]/g, "").slice(-16).padStart(16, "0");
@@ -627,6 +636,7 @@
       if (!claimed) users.push(user);
       if (!saveUsers(users) || !logIn(user, true)) {
         showFormError(registerError, "Your browser is blocking storage, so the account could not be saved.");
+        sound("nudge");
         return;
       }
       showFormError(registerError, "");
@@ -645,6 +655,7 @@
         const show = input.type === "password";
         input.type = show ? "text" : "password";
         button.querySelector(".toggle-word").textContent = show ? "Hide" : "Show";
+        sound("toggle", show ? "up" : "down");
       });
     });
   }
@@ -709,6 +720,7 @@
           el("button", { type: "button", className: "text-button", id: "community-log-out", text: "Log out", onclick: () => {
             logOut();
             refreshUser();
+            sound("pop");
             announce("You have logged out.");
           } })
         );
@@ -792,6 +804,7 @@
     }
 
     function selectDay(iso, focus) {
+      if (iso !== state.selected) sound("select");
       state.selected = iso;
       const date = fromISO(iso);
       if (date.getMonth() !== state.month.getMonth() || date.getFullYear() !== state.month.getFullYear()) {
@@ -802,6 +815,7 @@
     }
 
     function moveMonth(step) {
+      sound(step > 0 ? "push" : "pop");
       state.month = new Date(state.month.getFullYear(), state.month.getMonth() + step, 1);
       const sameMonthAsToday = state.month.getFullYear() === today().getFullYear() && state.month.getMonth() === today().getMonth();
       state.selected = toISO(sameMonthAsToday ? today() : state.month);
@@ -919,6 +933,7 @@
       if (first) {
         showFormError(eventError, "Please fix the boxes marked above.");
         first.focus();
+        sound("nudge");
         return;
       }
       showFormError(eventError, "");
@@ -937,6 +952,7 @@
       persist("events");
       eventForm.reset();
       renderAll();
+      sound("add");
       announce(admin ? "Meet-up added to the calendar." : "Thanks! An admin will check your meet-up before it shows for everyone.");
     });
 
@@ -947,6 +963,7 @@
       event.going = going ? event.going.filter((userId) => userId !== state.user.id) : event.going.concat(state.user.id);
       persist("events");
       renderAll();
+      sound("check", !going);
       announce(going ? "You are no longer going to " + event.title + "." : "You are going to " + event.title + ".");
     }
 
@@ -956,6 +973,7 @@
       event.status = "approved";
       persist("events");
       renderAll();
+      sound("add");
       announce("“" + event.title + "” is now on the calendar for everyone.");
     }
 
@@ -966,6 +984,7 @@
       state.events = state.events.filter((item) => item.id !== id);
       persist("events");
       renderAll();
+      sound("remove");
       announce(verb === "Decline" ? "Meet-up declined and removed." : "Meet-up deleted.");
     }
 
@@ -997,7 +1016,8 @@
     const topicFilter = document.getElementById("topic-filter");
     const postTopic = document.getElementById("new-post-topic");
 
-    topicFilter.addEventListener("change", () => {
+    topicFilter.addEventListener("change", (event) => {
+      if (event.isTrusted) sound("select");
       state.topic = topicFilter.value;
       renderPosts();
     });
@@ -1027,6 +1047,7 @@
       if (first) {
         showFormError(postError, "Please fix the boxes marked above.");
         first.focus();
+        sound("nudge");
         return;
       }
       showFormError(postError, "");
@@ -1050,6 +1071,7 @@
         topicFilter.value = "all";
       }
       renderPosts();
+      sound("add");
       announce("Your post is on the board.");
       const added = document.getElementById("post-" + post.id);
       if (added) added.querySelector(".post-title").focus();
@@ -1105,6 +1127,7 @@
           if (!input.value.trim()) {
             setFieldError(input, "Write something before you reply.");
             input.focus();
+            sound("nudge");
             return;
           }
           addReply(post.id, input.value);
@@ -1150,6 +1173,7 @@
       openReplies.add(postId);
       persist("posts");
       renderPosts();
+      sound("add");
       announce("Reply added.");
       const field = document.getElementById("reply-" + postId);
       if (field) field.focus();
@@ -1161,6 +1185,7 @@
       post.pinned = !post.pinned;
       persist("posts");
       renderPosts();
+      sound("check", post.pinned);
       announce(post.pinned ? "Post pinned to the top." : "Post unpinned.");
       const card = document.getElementById("post-" + postId);
       if (card) card.querySelector(".post-title").focus();
@@ -1173,6 +1198,7 @@
       state.posts = state.posts.filter((item) => item.id !== postId);
       persist("posts");
       renderPosts();
+      sound("remove");
       announce("Post deleted.");
       document.getElementById("board-title").focus();
     }
@@ -1185,6 +1211,7 @@
       post.replies = post.replies.filter((item) => item.id !== replyId);
       persist("posts");
       renderPosts();
+      sound("remove");
       announce("Reply deleted.");
     }
 
@@ -1228,6 +1255,7 @@
       user.role = isAdmin(user) ? "member" : "admin";
       persist("users");
       renderAll();
+      sound("check", isAdmin(user));
       announce(user.name + " is now " + (isAdmin(user) ? "an admin." : "a member."));
     }
 
