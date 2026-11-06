@@ -78,6 +78,35 @@
     assert.none(problems);
   });
 
+  // Link previews (Facebook, Messenger, Viber, X): every page names itself, matches its
+  // own description and points at the live site, where the share image must exist.
+  test("static: every page has link-preview tags", async () => {
+    const LIVE = "https://linisaskid.github.io/before-landfall/";
+    const problems = [];
+    for (const page of PAGES) {
+      const doc = await getDoc(page);
+      const meta = (selector) => (doc.querySelector("meta[" + selector + "]") || {}).content;
+      const og = (name) => meta('property="og:' + name + '"');
+      const expected = {
+        type: "website",
+        site_name: "Before Landfall",
+        title: doc.title.replace(/ \| Before Landfall$/, ""),
+        description: meta('name="description"'),
+        url: page === "index.html" ? LIVE : LIVE + page,
+        image: LIVE + "images/share.png",
+        "image:width": "1200",
+        "image:height": "630",
+      };
+      Object.keys(expected).forEach((name) => {
+        if (og(name) !== expected[name]) problems.push(page + ": og:" + name + ' is "' + og(name) + '", expected "' + expected[name] + '"');
+      });
+      if (!og("image:alt")) problems.push(page + ": missing og:image:alt");
+      if (meta('name="twitter:card"') !== "summary_large_image") problems.push(page + ": twitter:card is not summary_large_image");
+    }
+    if (!(await exists("images/share.png"))) problems.push("images/share.png is missing");
+    assert.none(problems);
+  });
+
   test("static: ids are unique and every id reference resolves", async () => {
     const problems = [];
     const ID_LIST_ATTRS = ["for", "aria-labelledby", "aria-describedby", "aria-controls", "aria-owns", "aria-details", "headers", "list", "form"];
