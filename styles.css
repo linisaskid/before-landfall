@@ -2855,15 +2855,10 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .account-link.is-signed-in { padding-left: var(--space-half); }
 .account-label { max-width: 10rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-avatar {
-  display: inline-grid;
+  display: block;
   flex: none;
-  place-items: center;
   width: 2rem;
   height: 2rem;
-  border-radius: 50%;
-  background: var(--sea);
-  color: var(--sea-ink);
-  font: var(--weight-bold) .9rem/1 var(--sans);
 }
 .account-avatar:empty { display: none; }
 @media (min-width: 40rem) {
@@ -2971,8 +2966,69 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .account-card h2 { font: var(--weight-bold) var(--text-lg)/1.2 var(--display); }
 .account-intro { margin: var(--space-half) 0 var(--space-3); color: var(--ink-soft); font: var(--text-sm)/1.5 var(--sans); }
 .signed-in-card { max-width: 40rem; font-family: var(--sans); }
-.signed-in-card > p { margin-top: var(--space-1); color: var(--ink-soft); }
+.signed-in-head { display: flex; align-items: center; gap: var(--space-2); }
+.signed-in-head p { margin-top: var(--space-1); color: var(--ink-soft); }
 .signed-in-card strong { color: var(--ink); }
+.signed-in-avatar { flex: none; width: 4.5rem; height: 4.5rem; }
+.signed-in-card .status-message { margin-top: var(--space-2); }
+@media (max-width: 29.99rem) {
+  .signed-in-head { align-items: flex-start; }
+  .signed-in-avatar { width: 3.5rem; height: 3.5rem; }
+}
+
+/* --- Avatars: a glyph on a coloured circle (drawn by community.js) ------------ */
+.account-avatar svg, .signed-in-avatar svg, .author-avatar svg, .avatar-option svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  /* A faint edge, so the navy pictures stay round on the dark theme. */
+  box-shadow: 0 0 0 1px var(--divider);
+}
+.author-avatar { display: inline-block; width: 1.5rem; height: 1.5rem; margin-right: var(--space-1); vertical-align: -.45em; }
+
+.avatar-dialog {
+  width: min(40rem, calc(100% - 2 * var(--gutter)));
+  max-height: calc(100% - 2 * var(--gutter));
+  padding: var(--inset);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  box-shadow: 0 24px 64px rgb(6 20 28 / .28);
+}
+.avatar-dialog::backdrop { background: rgb(6 20 28 / .5); }
+.avatar-dialog h2 { font: var(--weight-bold) var(--text-lg)/1.2 var(--display); }
+.avatar-dialog p { margin-top: var(--space-half); color: var(--ink-soft); font: var(--text-sm)/1.5 var(--sans); }
+/* The honeycomb: rows of round radio buttons, sized from the dialog's width so nine
+   still fit across a phone. */
+.avatar-field { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); min-width: 0; margin: var(--space-3) 0; padding: 0; border: 0; container-type: inline-size; }
+.avatar-row { display: flex; align-items: center; justify-content: center; gap: 1.6cqi; }
+.avatar-option {
+  position: relative;
+  flex: none;
+  width: calc(var(--scale) * min(5.25rem, 90cqi / var(--per-row, 9)));
+  height: calc(var(--scale) * min(5.25rem, 90cqi / var(--per-row, 9)));
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform .15s ease, opacity .15s ease;
+}
+.avatar-option.is-far { opacity: .5; }
+.avatar-option:hover { transform: scale(1.06); }
+.avatar-option:hover, .avatar-option:has(:checked), .avatar-option:has(:focus-visible) { opacity: 1; }
+.avatar-option:has(:checked) { box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--sea); }
+.avatar-option:has(:focus-visible) { outline: 3px solid var(--focus); outline-offset: 7px; }
+.avatar-dialog-actions { display: flex; flex-wrap: wrap; gap: var(--space-1); padding-top: var(--space-2); border-top: 1px solid var(--rule); }
+.avatar-dialog-actions .button:first-child { margin-right: auto; }
+@media (max-width: 29.99rem) {
+  .avatar-dialog { padding: var(--space-2); }
+  .avatar-dialog-actions .button { padding: var(--space-1) var(--space-2); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar-option { transition: none; }
+  .avatar-option:hover { transform: none; }
+}
 .password-field { display: flex; align-items: stretch; overflow: hidden; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper); }
 .password-field:has([aria-invalid="true"]) { border-color: var(--c-evacuate); }
 .form-field .password-field input { border: 0; border-radius: 0; background: transparent; }
