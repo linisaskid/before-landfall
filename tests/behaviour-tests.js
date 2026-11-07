@@ -152,6 +152,22 @@
   // Site-wide controls
   // ==========================================================================
 
+  test("site: the soft bottom edge switches off as soon as the footer comes into view", async () => {
+    const page = await openPage("index.html", { width: 1280, height: 800 });
+    const edge = page.$(".motion-edge");
+    assert.ok(edge, "the edge was added");
+    await sleep(150);
+    assert.ok(!edge.classList.contains("is-off"), "on at the top of the page");
+    const footerTop = page.$(".site-footer").getBoundingClientRect().top + page.win.scrollY;
+    page.win.scrollTo({ top: footerTop - 800 + 40, behavior: "instant" }); // 40 px of footer showing
+    await sleep(150);
+    assert.ok(edge.classList.contains("is-off"), "off once the footer's top edge is on screen");
+    page.win.scrollTo({ top: footerTop - 800 - 200, behavior: "instant" });
+    await sleep(150);
+    assert.ok(!edge.classList.contains("is-off"), "on again when the footer scrolls away");
+    noErrors(page);
+  });
+
   test("site: the theme switch applies, remembers and resets the theme", async () => {
     let page = await openPage("calculator.html");
     const root = page.doc.documentElement;
