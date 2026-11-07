@@ -59,7 +59,9 @@
                        "July", "August", "September", "October", "November", "December"];
 
   const THEME_KEY = "theme";
-  const ROLL_TRANSITION = { duration: 420, easing: "cubic-bezier(0.22, 1, 0.36, 1)" };
+  // Same curve and duration as --ease-out and --d4 in styles.css, so rolling numbers
+  // move like everything else on the page.
+  const ROLL_TRANSITION = { duration: 460, easing: "cubic-bezier(0.22, 1, 0.36, 1)" };
 
   const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
   const prefersReducedMotion = () => motionPreference.matches;
@@ -1202,7 +1204,7 @@
       if (animate) sound("tick");
     }
 
-    setRollTransition(waterTotal, { duration: 380, easing: ROLL_TRANSITION.easing });
+    setRollTransition(waterTotal);
     inputs.forEach((input) => input.addEventListener("input", () => updateTotal(true)));
     updateTotal(false);
   }

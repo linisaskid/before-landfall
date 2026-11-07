@@ -131,7 +131,9 @@
   ].join("\n");
 
   // How the storm looks at each warning stage (ids match STAGES in script.js).
-  // Colours come from the CSS custom properties, so they follow the theme.
+  // Colours come from the CSS custom properties, so they follow the theme. The
+  // storm is the one big thing on the page allowed colour, because its colour is
+  // the warning stage.
   const STAGE_LOOKS = {
     alert:    { colorVar: "--c-alert",    speed: 0.10, intensity: 0.85 },
     prepare:  { colorVar: "--c-prepare",  speed: 0.17, intensity: 1.00 },
@@ -208,7 +210,7 @@
       intensity: 1,
       alpha: 0.5,
       colorA: [0.9, 0.6, 0.1], // the stage colour
-      colorB: [0.1, 0.4, 0.5], // the deep sea colour
+      colorB: [0.25, 0.37, 0.42], // the cloud body: the soft ink, so only the arms carry colour
       eyeX: 0,
       eyeY: 0,
       eyeRadius: 200,
@@ -229,7 +231,7 @@
         speed: look.speed,
         intensity: look.intensity,
         colorA: hexToRgb(tokens.getPropertyValue(look.colorVar), [0.15, 0.59, 0.66]),
-        colorB: hexToRgb(tokens.getPropertyValue("--sea"), [0.09, 0.41, 0.48]),
+        colorB: hexToRgb(tokens.getPropertyValue("--ink-soft"), [0.25, 0.37, 0.42]),
       };
     }
 

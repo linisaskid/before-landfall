@@ -20,8 +20,9 @@ html.motion-pending :is(.hero-text h1, .support-hero-copy h1, .section-heading h
   position: fixed;
   inset: 0 0 auto 0;
   z-index: 40;
-  height: 3px;
-  background: linear-gradient(90deg, var(--c-alert), var(--sea) 55%, var(--c-prepare));
+  height: 2px;
+  background: var(--ink);
+  opacity: .55;
   transform: scaleX(0);
   transform-origin: 0 50%;
   pointer-events: none;
@@ -37,7 +38,7 @@ html.motion-pending :is(.hero-text h1, .support-hero-copy h1, .section-heading h
   height: calc(100% + 96px);
   pointer-events: none;
   opacity: 0;
-  transition: opacity 1.2s ease-out;
+  transition: opacity 1.2s var(--ease-out);
 }
 .hero-cyclone.is-live { opacity: 1; }
 
