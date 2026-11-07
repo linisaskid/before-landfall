@@ -462,7 +462,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   color-scheme: dark;
 
   margin-top: var(--space-6);
-  padding-block: var(--space-9) var(--space-7);
+  padding-block: var(--space-7) var(--space-5);
   border-top: 1px solid var(--rule);
   background: #0c1e27;
   color: var(--ink);
@@ -525,12 +525,18 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   flex: 2 1 22rem;
 }
 
+/* Two columns of rows rather than one: nine stacked rows made the footer
+   taller than a laptop screen. Each row carries its own top and bottom rule
+   (overlapped by -1px) so the odd last row still closes with a line. */
 .footer-links {
-  border-bottom: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--space-4);
 }
 
 .footer-links li {
-  border-top: 1px solid var(--rule);
+  margin-top: -1px;
+  border-block: 1px solid var(--rule);
 }
 
 .footer-links a {
