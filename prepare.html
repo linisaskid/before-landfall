@@ -103,24 +103,24 @@
             <path d="M91 34V296M153 34V296M215 34V296M277 34V296M339 34V296M401 34V296M463 34V296"/>
           </g>
           <path d="M68 251C118 278 156 264 202 235C243 210 277 215 318 221C368 228 410 200 430 143" fill="none" stroke="var(--ink-soft)" stroke-width="2.4" stroke-dasharray="4 8" stroke-linecap="round"/>
-          <path d="M67 251C115 216 123 166 181 157C229 150 253 197 304 185C354 173 377 122 413 119" fill="none" stroke="var(--sea)" stroke-width="3" stroke-dasharray="7 9" stroke-linecap="round"/>
-          <circle cx="67" cy="251" r="21" fill="var(--paper)" stroke="var(--sea)" stroke-width="2"/>
+          <path d="M67 251C115 216 123 166 181 157C229 150 253 197 304 185C354 173 377 122 413 119" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="7 9" stroke-linecap="round"/>
+          <circle cx="67" cy="251" r="21" fill="var(--paper)" stroke="var(--accent)" stroke-width="2"/>
           <path d="M56 251l11-10 11 10v10H56v-10Zm7 10v-7h8v7" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linejoin="round"/>
           <circle cx="181" cy="157" r="12" fill="var(--c-prepare)" stroke="var(--paper)" stroke-width="4"/>
-          <circle cx="437" cy="119" r="24" fill="var(--tint-alert)" stroke="var(--sea)" stroke-width="2"/>
-          <path d="M428 119h18M437 110v18" stroke="var(--sea)" stroke-width="2.2" stroke-linecap="round"/>
+          <circle cx="437" cy="119" r="24" fill="var(--paper)" stroke="var(--accent)" stroke-width="2"/>
+          <path d="M428 119h18M437 110v18" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"/>
           <rect x="372" y="246" width="150" height="58" rx="10" fill="var(--paper)" stroke="var(--rule)" stroke-width="1.4"/>
-          <path d="M388 276h72M388 288h104" stroke="var(--sea)" stroke-opacity=".7" stroke-width="2" stroke-linecap="round"/>
+          <path d="M388 276h72M388 288h104" stroke="var(--accent)" stroke-opacity=".7" stroke-width="2" stroke-linecap="round"/>
           <circle cx="504" cy="262" r="6" fill="var(--c-prepare)"/>
-          <g font-size="9" font-weight="700" letter-spacing="1">
-            <text x="388" y="265" fill="var(--ink-soft)" font-size="8">PLAN NOTES</text>
-            <text x="67" y="292" text-anchor="middle" fill="var(--ink-soft)">HOME</text>
-            <text x="181" y="133" text-anchor="middle" fill="var(--ink-soft)">MEETING POINT</text>
-            <text x="437" y="84" text-anchor="middle" fill="var(--ink)">SAFE PLACE</text>
+          <g font-size="10" font-weight="700">
+            <text x="388" y="265" fill="var(--ink-soft)" font-size="8">Plan notes</text>
+            <text x="67" y="292" text-anchor="middle" fill="var(--ink-soft)">Home</text>
+            <text x="181" y="133" text-anchor="middle" fill="var(--ink-soft)">Meeting point</text>
+            <text x="437" y="84" text-anchor="middle" fill="var(--ink)">Safe place</text>
           </g>
-          <g font-size="8.5" font-weight="700" letter-spacing="1" fill="var(--ink-soft)">
-            <path d="M44 48H72" stroke="var(--sea)" stroke-width="3" stroke-dasharray="7 6" stroke-linecap="round"/><text x="80" y="51">MAIN ROUTE</text>
-            <path d="M44 68H72" stroke="var(--ink-soft)" stroke-width="2.4" stroke-dasharray="4 6" stroke-linecap="round"/><text x="80" y="71">SECOND WAY</text>
+          <g font-size="9.5" font-weight="700" fill="var(--ink-soft)">
+            <path d="M44 48H72" stroke="var(--accent)" stroke-width="3" stroke-dasharray="7 6" stroke-linecap="round"/><text x="80" y="51">Main route</text>
+            <path d="M44 68H72" stroke="var(--ink-soft)" stroke-width="2.4" stroke-dasharray="4 6" stroke-linecap="round"/><text x="80" y="71">Second way</text>
           </g>
 </svg>
         <figcaption><span>Agree on a main route and a second way.</span><span>Not a local map</span></figcaption>
@@ -188,7 +188,7 @@
           <span class="water-operator" aria-hidden="true">×</span>
           <div class="form-field"><label for="water-per-person">Litres per person / day</label><input id="water-per-person" type="number" min="0.5" max="20" step="0.5" value="3" inputmode="decimal"></div>
         </div>
-        <div class="water-output" aria-live="polite"><span class="eyebrow">YOUR TOTAL</span><strong><roll-text id="water-total">36 litres</roll-text></strong><span class="water-formula">people × days × your litres-per-person assumption</span></div>
+        <div class="water-output" aria-live="polite"><span class="eyebrow">Your total</span><strong><roll-text id="water-total">36 litres</roll-text></strong><span class="water-formula">people × days × your litres-per-person assumption</span></div>
       </div>
       <p class="source-line">This is an editable planning example, not a local supply standard or medical recommendation. Adjust it for your household and follow current official guidance. General preparedness advice: National Hurricane Center.<sup class="cite"><a href="sources.html#ref-13" title="National Hurricane Center (n.d.), preparedness" aria-label="Source 13: National Hurricane Center (n.d.), preparedness">13</a></sup></p>
     </section>
@@ -237,8 +237,8 @@
         </form>
 
         <section class="printable-plan" id="printable-plan" aria-labelledby="saved-plan-title">
-          <div class="plan-paper-top"><span>BEFORE LANDFALL</span><span>HOUSEHOLD PLAN</span></div>
-          <p class="eyebrow">PRINT OR KEEP NEARBY</p>
+          <div class="plan-paper-top"><span>Before Landfall</span><span>Household plan</span></div>
+          <p class="eyebrow">Print or keep nearby</p>
           <h3 id="saved-plan-title">Our cyclone plan</h3>
           <p class="empty-state" id="plan-empty">Save your plan to see a printable copy here.</p>
           <div class="plan-summary" id="plan-summary" hidden>

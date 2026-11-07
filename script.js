@@ -50,6 +50,19 @@
 
   const stageForHours = (hours) => STAGES.find((stage) => stage.test(hours));
 
+  // Where an answer sits on the Over 24 h | 6–24 h | Under 6 h bar (the calculator's
+  // gauge, and its demo on the home page). The bar runs from far away (left) to close
+  // (right), and its three bands are 1 : 1.2 : 1 wide.
+  function gaugePosition(hours) {
+    const alertEnd = 100 / 3.2;
+    const prepareEnd = (100 * 2.2) / 3.2;
+    let position;
+    if (hours > ALERT_ABOVE) position = alertEnd * (1 - Math.min((hours - ALERT_ABOVE) / 48, 1));
+    else if (hours >= EVACUATE_BELOW) position = alertEnd + ((ALERT_ABOVE - hours) / (ALERT_ABOVE - EVACUATE_BELOW)) * (prepareEnd - alertEnd);
+    else position = prepareEnd + ((EVACUATE_BELOW - hours) / EVACUATE_BELOW) * (100 - prepareEnd);
+    return Math.min(Math.max(position, 3), 97);
+  }
+
   // Main cyclone periods for the Bay of Bengal, as month indexes (0 = January).
   const SEASONS = [
     { from: 3, to: 4 },
@@ -59,7 +72,9 @@
                        "July", "August", "September", "October", "November", "December"];
 
   const THEME_KEY = "theme";
-  const ROLL_TRANSITION = { duration: 420, easing: "cubic-bezier(0.22, 1, 0.36, 1)" };
+  // Same curve and duration as --ease-out and --d4 in styles.css, so rolling numbers
+  // move like everything else on the page.
+  const ROLL_TRANSITION = { duration: 460, easing: "cubic-bezier(0.22, 1, 0.36, 1)" };
 
   const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
   const prefersReducedMotion = () => motionPreference.matches;
@@ -418,6 +433,151 @@
     onReducedMotionEnabled(() => {
       const stage = STAGES.find((item) => item.id === currentStageId);
       if (stage) showAdviceImmediately(stage);
+    });
+  }
+
+  // The tool cards under "What you can do here" each play a small, silent version of
+  // their tool. A demo moves on to its next example every few seconds, but only while
+  // it is on screen and the tab is visible. With reduced motion (or no script) each
+  // card keeps the one still example written in the HTML.
+  const DEMO_STEP_MS = 2800;
+
+  // Calculator: distance ÷ speed = hours, and the stage those hours fall in.
+  // Every example divides exactly, and between them they reach all three stages.
+  function calculatorDemo(demo) {
+    const distance = demo.querySelector("[data-demo-distance]");
+    const speed = demo.querySelector("[data-demo-speed]");
+    const hours = demo.querySelector("[data-demo-hours]");
+    const stageName = demo.querySelector("[data-demo-stage]");
+    const chip = demo.querySelector(".demo-stage");
+    const marker = demo.querySelector(".result-gauge-marker");
+    if (!distance || !speed || !hours || !stageName || !chip || !marker) return null;
+
+    const examples = [[540, 30], [900, 25], [120, 24], [300, 25]];
+    [distance, speed, hours, stageName].forEach((element) => setRollTransition(element));
+    let index = 0;
+    let answerTimer = 0;
+
+    return function next() {
+      index = (index + 1) % examples.length;
+      const [km, kmh] = examples[index];
+      const stage = stageForHours(km / kmh);
+      setRoll(distance, String(km));
+      setRoll(speed, String(kmh));
+      // The answer follows a moment after the numbers that make it.
+      clearTimeout(answerTimer);
+      answerTimer = setTimeout(() => {
+        setRoll(hours, String(km / kmh));
+        setRoll(stageName, stage.name);
+        chip.dataset.stage = stage.id;
+        marker.style.setProperty("--gauge-position", gaugePosition(km / kmh) + "%");
+      }, 280);
+    };
+  }
+
+  // Warnings: the stages in the order a storm brings them, then back to the start.
+  function warningsDemo(demo) {
+    const control = demo.querySelector(".demo-seg");
+    const band = demo.querySelector("[data-demo-band]");
+    const action = demo.querySelector("[data-demo-action]");
+    if (!control || !band || !action) return null;
+
+    const order = ["alert", "prepare", "evacuate"];
+    const bands = {
+      alert: "Over " + ALERT_ABOVE + " hours",
+      prepare: EVACUATE_BELOW + " to " + ALERT_ABOVE + " hours",
+      evacuate: "Under " + EVACUATE_BELOW + " hours",
+    };
+    const actions = {
+      alert: "Listen for official updates and check on neighbours.",
+      prepare: "Pack, charge phones and agree your route.",
+      evacuate: "Go to your shelter now.",
+    };
+    setRollTransition(band);
+    let index = Number(control.dataset.active) || 0;
+    let actionTimer = 0;
+
+    return function next() {
+      index = (index + 1) % order.length;
+      const id = order[index];
+      control.dataset.active = String(index);
+      setRoll(band, bands[id]);
+      clearTimeout(actionTimer);
+      action.classList.add("is-changing");
+      actionTimer = setTimeout(() => {
+        action.textContent = actions[id];
+        action.classList.remove("is-changing");
+      }, 200);
+    };
+  }
+
+  // Prepare: the checklist ticks itself off one task at a time, rests when it is
+  // complete, then starts again.
+  function prepareDemo(demo) {
+    const checks = Array.from(demo.querySelectorAll(".demo-check"));
+    const progress = demo.querySelector(".demo-progress");
+    const count = demo.querySelector("[data-demo-done]");
+    if (!checks.length || !progress || !count) return null;
+
+    const sequence = [3, 3, 0, 1, 2];
+    setRollTransition(count);
+    let index = sequence.length - 1; // the HTML shows 2 of 3 done
+
+    return function next() {
+      index = (index + 1) % sequence.length;
+      const done = sequence[index];
+      checks.forEach((check, i) => check.classList.toggle("is-done", i < done));
+      progress.style.setProperty("--done", String(done));
+      setRoll(count, String(done));
+    };
+  }
+
+  function setUpToolDemos() {
+    const demos = Array.from(document.querySelectorAll("[data-demo]"));
+    if (!demos.length || prefersReducedMotion() || typeof window.IntersectionObserver !== "function") return;
+
+    const builders = { calculator: calculatorDemo, warnings: warningsDemo, prepare: prepareDemo };
+    const players = [];
+    demos.forEach((demo, order) => {
+      const build = builders[demo.dataset.demo];
+      const next = build ? build(demo) : null;
+      // Staggered, so the three cards never all change in the same moment.
+      if (next) players.push({ demo, next, delay: DEMO_STEP_MS / 2 + order * 700, timer: 0, onScreen: false });
+    });
+
+    function start(player) {
+      if (player.timer) return;
+      const tick = () => {
+        player.next();
+        player.timer = setTimeout(tick, DEMO_STEP_MS);
+      };
+      player.timer = setTimeout(tick, player.delay);
+    }
+
+    function stop(player) {
+      clearTimeout(player.timer);
+      player.timer = 0;
+    }
+
+    function refresh(player) {
+      if (player.onScreen && !document.hidden) start(player);
+      else stop(player);
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const player = players.find((item) => item.demo === entry.target);
+        if (!player) return;
+        player.onScreen = entry.isIntersecting;
+        refresh(player);
+      });
+    }, { threshold: 0.35 });
+
+    players.forEach((player) => observer.observe(player.demo));
+    document.addEventListener("visibilitychange", () => players.forEach(refresh));
+    onReducedMotionEnabled(() => {
+      observer.disconnect();
+      players.forEach(stop);
     });
   }
 
@@ -910,18 +1070,6 @@
       return null;
     }
 
-    // Where the answer sits on the Over 24 h | 6–24 h | Under 6 h bar. The bar runs from far
-    // away (left) to close (right), and its three bands are 1 : 1.2 : 1 wide.
-    function gaugePosition(hours) {
-      const alertEnd = 100 / 3.2;
-      const prepareEnd = (100 * 2.2) / 3.2;
-      let position;
-      if (hours > ALERT_ABOVE) position = alertEnd * (1 - Math.min((hours - ALERT_ABOVE) / 48, 1));
-      else if (hours >= EVACUATE_BELOW) position = alertEnd + ((ALERT_ABOVE - hours) / (ALERT_ABOVE - EVACUATE_BELOW)) * (prepareEnd - alertEnd);
-      else position = prepareEnd + ((EVACUATE_BELOW - hours) / EVACUATE_BELOW) * (100 - prepareEnd);
-      return Math.min(Math.max(position, 3), 97);
-    }
-
     function showPrompt() {
       result.hidden = true;
       if (estimatePrompt) estimatePrompt.hidden = false;
@@ -1202,7 +1350,7 @@
       if (animate) sound("tick");
     }
 
-    setRollTransition(waterTotal, { duration: 380, easing: ROLL_TRANSITION.easing });
+    setRollTransition(waterTotal);
     inputs.forEach((input) => input.addEventListener("input", () => updateTotal(true)));
     updateTotal(false);
   }
@@ -1740,6 +1888,7 @@
   // Home
   setUpLandfallSlider();
   showSeasonMessage();
+  setUpToolDemos();
   // Cyclones
   setUpBasinPicker();
   setUpFormationStepper();

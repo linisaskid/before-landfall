@@ -373,6 +373,47 @@
     noErrors(page);
   });
 
+  test("home: the tool demos only ever settle on sums that add up, in the right stage", async () => {
+    const page = await openPage("index.html", { width: 1280, height: 900 });
+    page.$(".tool-grid").scrollIntoView({ block: "center", behavior: "instant" });
+    const calc = page.$('[data-demo="calculator"]');
+    const warn = page.$('[data-demo="warnings"]');
+    const prep = page.$('[data-demo="prepare"]');
+    const bands = ["Over 24 hours", "6 to 24 hours", "Under 6 hours"];
+    const examples = new Set();
+    const problems = [];
+    let wrongFor = 0; // the answer follows its numbers by a moment, so allow a short gap
+    for (let i = 0; i < 75; i += 1) {
+      const km = Number(text(calc.querySelector("[data-demo-distance]")));
+      const kmh = Number(text(calc.querySelector("[data-demo-speed]")));
+      const hours = Number(text(calc.querySelector("[data-demo-hours]")));
+      const stage = calc.querySelector(".demo-stage").dataset.stage;
+      const right = km / kmh === hours && stage === stageFor(hours) && text(calc.querySelector("[data-demo-stage]")) === STAGE_NAMES[stage];
+      wrongFor = right ? 0 : wrongFor + 1;
+      if (wrongFor > 6) problems.push("calculator shows " + km + " ÷ " + kmh + " = " + hours + " (" + stage + ") for over 600 ms");
+      if (right) examples.add(km + "/" + kmh);
+      const active = Number(warn.querySelector(".demo-seg").dataset.active);
+      if (text(warn.querySelector("[data-demo-band]")) !== bands[active]) problems.push("warnings: band " + text(warn.querySelector("[data-demo-band]")) + " with stage " + active);
+      const done = prep.querySelectorAll(".demo-check.is-done").length;
+      if (text(prep.querySelector("[data-demo-done]")) !== String(done)) problems.push("prepare: " + done + " ticked but the count says " + text(prep.querySelector("[data-demo-done]")));
+      await sleep(100);
+    }
+    assert.none(Array.from(new Set(problems)));
+    assert.ok(examples.size >= 2, "the calculator demo moved on to another example (saw " + Array.from(examples).join(", ") + ")");
+    noErrors(page);
+  }, { timeout: 30000 });
+
+  test("home: with reduced motion the tool demos hold their still example", async () => {
+    const page = await openPage("index.html", { width: 1280, height: 900, inject: REDUCED_MOTION });
+    page.$(".tool-grid").scrollIntoView({ block: "center", behavior: "instant" });
+    await sleep(3600);
+    assert.equal(text(page.$("[data-demo-distance]")), "540", "calculator distance");
+    assert.equal(text(page.$("[data-demo-hours]")), "18", "calculator answer");
+    assert.equal(page.$(".demo-seg").dataset.active, "1", "warning stage");
+    assert.equal(text(page.$("[data-demo-done]")), "2", "checklist count");
+    noErrors(page);
+  });
+
   test("home: the season note is right on every kind of date", async () => {
     const cases = [[2026, 0, 1], [2026, 2, 31], [2026, 3, 1], [2026, 4, 31], [2026, 5, 1], [2026, 8, 30], [2026, 9, 1], [2026, 10, 30], [2026, 11, 1], [2026, 11, 31], [2028, 1, 29], [2026, 2, 8]];
     const problems = [];

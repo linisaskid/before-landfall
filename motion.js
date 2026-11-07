@@ -7,7 +7,8 @@
  *   2. Headline line reveals (SplitText)
  *   3. Parallax on illustrations
  *   4. WebGL cyclone behind the hero panel
- *   5. Start
+ *   5. Soft bottom edge
+ *   6. Start
  */
 (function () {
   "use strict";
@@ -131,7 +132,9 @@
   ].join("\n");
 
   // How the storm looks at each warning stage (ids match STAGES in script.js).
-  // Colours come from the CSS custom properties, so they follow the theme.
+  // Colours come from the CSS custom properties, so they follow the theme. The
+  // storm is the one big thing on the page allowed colour, because its colour is
+  // the warning stage.
   const STAGE_LOOKS = {
     alert:    { colorVar: "--c-alert",    speed: 0.10, intensity: 0.85 },
     prepare:  { colorVar: "--c-prepare",  speed: 0.17, intensity: 1.00 },
@@ -208,7 +211,7 @@
       intensity: 1,
       alpha: 0.5,
       colorA: [0.9, 0.6, 0.1], // the stage colour
-      colorB: [0.1, 0.4, 0.5], // the deep sea colour
+      colorB: [0.25, 0.37, 0.42], // the cloud body: the soft ink, so only the arms carry colour
       eyeX: 0,
       eyeY: 0,
       eyeRadius: 200,
@@ -229,7 +232,7 @@
         speed: look.speed,
         intensity: look.intensity,
         colorA: hexToRgb(tokens.getPropertyValue(look.colorVar), [0.15, 0.59, 0.66]),
-        colorB: hexToRgb(tokens.getPropertyValue("--sea"), [0.09, 0.41, 0.48]),
+        colorB: hexToRgb(tokens.getPropertyValue("--ink-soft"), [0.25, 0.37, 0.42]),
       };
     }
 
@@ -342,13 +345,41 @@
   }
 
   // ==========================================================================
-  // 5. Start
+  // 5. Soft bottom edge
+  // Text scrolling off the bottom of the screen goes soft instead of being cut
+  // by the window's edge: five stacked backdrop blurs, each stronger and lower
+  // than the last (motion.css). It fades away near the end of the page, so the
+  // footer's last row is never under it.
+  // ==========================================================================
+
+  function initEdge() {
+    const edge = document.createElement("div");
+    edge.className = "motion-edge";
+    edge.setAttribute("aria-hidden", "true");
+    for (let i = 0; i < 5; i += 1) edge.appendChild(document.createElement("i"));
+    document.body.appendChild(edge);
+
+    let frame = 0;
+    function update() {
+      frame = 0;
+      const below = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+      edge.classList.toggle("is-off", below < 160);
+    }
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule, { passive: true });
+    update();
+  }
+
+  // ==========================================================================
+  // 6. Start
   // ==========================================================================
 
   safely("gsap plugins", () => { if (hasGsap) gsap.registerPlugin(ScrollTrigger); });
   safely("progress", initProgress);
   safely("cyclone", initCyclone);
   safely("parallax", initParallax);
+  safely("edge", initEdge);
 
   // Headings are split once the web fonts are in, so the line breaks are final.
   function finish() {
