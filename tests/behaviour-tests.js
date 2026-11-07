@@ -1559,44 +1559,98 @@
     assert.equal(text(other.$("#account-link .account-label")), "Log in", "the header on other pages follows too");
   }, { timeout: 60000 });
 
-  test("account: the avatar picker keeps the current picture in the middle, cancels, saves, and the picture follows the member", async () => {
+  test("account: the avatar picker drags, snaps the nearest picture to the middle, takes taps and arrow keys, cancels, saves, and the picture follows the member", async () => {
     const member = { id: "u-pic", name: "Pic", username: "pic_test", email: "", salt: "", hash: "", role: "member", joined: Date.UTC(2026, 0, 1) };
     signedIn(member);
     const headerPicture = (p) => p.$("#account-link .account-avatar svg").outerHTML;
     const before = headerPicture(await openPage("prepare.html"));
-    let page = await openPage("account.html");
+    // With reduced motion the honeycomb jumps instead of gliding, so each step can be checked at once.
+    let page = await openPage("account.html", { inject: REDUCED_MOTION });
     const sounds = soundsOf(page);
     assert.equal(headerPicture(page), before, "with no choice yet, the picture is the same on every page");
     assert.equal(page.$("#signed-in-avatar svg").outerHTML, before, "the card shows the same picture as the header");
 
     const dialog = page.$("#avatar-dialog");
+    const stage = () => page.$("#avatar-stage");
     const options = () => page.$$("#avatar-field input[name='avatar']");
     const checked = () => page.$("#avatar-field input:checked");
+    const shown = () => page.$$(".avatar-option").filter((option) => option.style.visibility !== "hidden");
+    const centreOf = (element) => { const box = element.getBoundingClientRect(); return [box.left + box.width / 2, box.top + box.height / 2]; };
+    // How far a picture's centre is from the middle of the stage, in px.
+    const offCentre = (input) => {
+      const [x, y] = centreOf(input.parentElement);
+      const [cx, cy] = centreOf(stage());
+      return Math.hypot(x - cx, y - cy);
+    };
+    const nearest = () => options().reduce((best, input) => (offCentre(input) < offCentre(best) ? input : best));
+    const pointer = (target, type, x, y, id) => target.dispatchEvent(new page.win.PointerEvent(type, { bubbles: true, pointerId: id, button: 0, clientX: x, clientY: y }));
+
     page.$("#change-avatar-button").click();
     assert.ok(dialog.open, "the picker opens");
-    assert.equal(options().length, 35, "35 pictures");
-    assert.equal(new Set(options().map((input) => input.value)).size, 35, "no picture twice");
+    assert.equal(options().length, 96, "every picture is there, so dragging can reach them all");
+    assert.equal(new Set(options().map((input) => input.value)).size, 96, "no picture twice");
+    assert.ok(shown().length >= 30, "about 35 show at once on a wide screen (" + shown().length + ")");
     assert.equal(page.doc.activeElement, checked(), "focus starts on the current picture");
-    assert.equal(options().indexOf(checked()), 17, "the current picture sits in the middle");
+    assert.ok(offCentre(checked()) < 1, "the current picture sits in the middle");
     assert.ok(options().every((input) => input.labels[0] && /^[A-Z][a-z ]+ on [a-z ]+$/.test(text(input.labels[0]))), "every picture has a spoken name");
     const original = checked().value;
     assert.deepEqual(sounds(), ["push"], "opening");
 
-    options()[3].click();
+    // Dragging moves the whole honeycomb; letting go picks whatever is nearest the middle.
+    const [cx, cy] = centreOf(stage());
+    pointer(stage(), "pointerdown", cx, cy, 7);
+    pointer(stage(), "pointermove", cx - 100, cy - 30, 7);
+    assert.ok(offCentre(checked()) > 80, "the honeycomb follows the pointer");
+    const landing = nearest();
+    pointer(stage(), "pointerup", cx - 100, cy - 30, 7);
+    assert.equal(checked(), landing, "letting go picks the picture nearest the middle");
+    assert.ok(checked().value !== original, "which is a new one");
+    assert.ok(offCentre(checked()) < 1, "and puts it in the middle");
+    assert.equal(page.doc.activeElement, checked(), "focus follows the pick");
+
+    // The honeycomb wraps round, so a long drag never runs out of pictures.
+    pointer(stage(), "pointerdown", cx, cy, 8);
+    for (let step = 1; step <= 25; step += 1) pointer(stage(), "pointermove", cx + step * 60, cy + step * 20, 8);
+    pointer(stage(), "pointerup", cx + 1500, cy + 500, 8);
+    assert.ok(offCentre(checked()) < 1, "after a long drag there is still a picture in the middle");
+    assert.ok(shown().length >= 30, "and the stage is still full");
+
+    // A tap (press and let go without moving) picks the tapped picture.
+    const target = options().find((input) => offCentre(input) > 50 && offCentre(input) < 120);
+    const [tx, ty] = centreOf(target.parentElement);
+    pointer(target.parentElement, "pointerdown", tx, ty, 9);
+    pointer(stage(), "pointerup", tx + 2, ty + 1, 9);
+    assert.equal(checked(), target, "a tap picks the tapped picture");
+    assert.ok(offCentre(checked()) < 1, "and brings it to the middle");
+
+    // Arrow keys step to the neighbouring picture and bring it to the middle.
+    const press = (name) => key(page.doc.activeElement, name);
+    const start = checked().value;
+    press("ArrowRight");
+    assert.ok(checked().value !== start && offCentre(checked()) < 1, "Right picks the next picture and centres it");
+    press("ArrowLeft");
+    assert.equal(checked().value, start, "Left undoes Right");
+    press("ArrowDown");
+    assert.ok(checked().value !== start && offCentre(checked()) < 1, "Down picks the picture below and centres it");
+    press("ArrowUp");
+    assert.equal(checked().value, start, "Up undoes Down");
+    assert.equal(page.doc.activeElement, checked(), "focus stays on the pick");
+    const heard = sounds();
+    assert.ok(heard.length >= 6 && heard.every((name) => name === "select"), "each new pick plays the select sound: " + heard.join(", "));
+
     const picked = checked().value;
-    assert.ok(picked !== original, "a click picks another picture");
     page.$("#avatar-shuffle").click();
-    assert.equal(checked().value, picked, "shuffle keeps the picked picture");
-    assert.equal(options().indexOf(checked()), 17, "and moves it to the middle");
+    assert.equal(checked().value, picked, "shuffle keeps the pick");
+    assert.ok(offCentre(checked()) < 1, "in the middle");
     page.$("#avatar-cancel").click();
     assert.ok(!dialog.open, "cancel closes the picker");
     assert.ok(!stored(COMMUNITY.users).find((user) => user.id === "u-pic").avatar, "cancel saves nothing");
     assert.equal(headerPicture(page), before, "and the header keeps the old picture");
-    assert.deepEqual(sounds(), ["select", "push", "pop"], "picking, shuffling, cancelling");
+    assert.deepEqual(sounds(), ["push", "pop"], "shuffling, cancelling");
 
     page.$("#change-avatar-button").click();
     assert.equal(checked().value, original, "reopening starts from the saved picture again");
-    const choice = options()[0];
+    const choice = options().find((input) => !input.checked);
     choice.click();
     const [glyph, colour] = choice.value.split(":");
     page.$("#avatar-save").click();
@@ -1615,10 +1669,10 @@
     assert.ok(page.$$("#post-list .post-card .post-meta .author-avatar svg").length > 0, "post authors show their pictures");
     noErrors(page);
 
-    page = await openPage("account.html", { width: 375 });
+    page = await openPage("account.html", { width: 375, inject: REDUCED_MOTION });
     page.$("#change-avatar-button").click();
-    assert.equal(options().length, 19, "a phone gets a smaller honeycomb");
-    assert.equal(options().indexOf(checked()), 9, "still with the current picture in the middle");
+    assert.ok(offCentre(checked()) < 1, "on a phone the current picture is in the middle too");
+    assert.ok(shown().length >= 15 && shown().length < 30, "with fewer pictures showing (" + shown().length + ")");
     assert.ok(checked().parentElement.getBoundingClientRect().width >= 44, "the middle picture is at least 44 px, big enough to tap");
     assert.none(overflow(page), "nothing sticks out of a phone screen");
     page.$("#avatar-cancel").click();
