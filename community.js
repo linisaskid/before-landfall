@@ -809,6 +809,7 @@
 
     // Lays out a fresh random mix around `keep`, which sits checked in the centre.
     function fill(keep) {
+      goalX = null;
       const rows = field.clientWidth < 420 ? NARROW : WIDE;
       const middle = Math.floor(rows.length / 2);
       const others = shuffled(ALL_AVATARS.filter((avatar) => !sameAvatar(avatar, keep)));
@@ -844,6 +845,38 @@
     });
 
     field.addEventListener("change", () => sound("select"));
+
+    // Radio buttons only know page order, so on their own Up and Down step sideways
+    // along a row like Left and Right. In the honeycomb they go to the nearest picture in
+    // the row above or below instead, and stop at the top and bottom rows. Rows sit half a
+    // picture apart, so a run of Up and Down presses aims at the column it started from,
+    // the way a text cursor does; otherwise down-then-up would drift sideways.
+    let goalX = null;
+    field.addEventListener("pointerdown", () => { goalX = null; });
+    field.addEventListener("keydown", (event) => {
+      if ((event.key !== "ArrowUp" && event.key !== "ArrowDown") || event.altKey || event.ctrlKey || event.metaKey) {
+        goalX = null;
+        return;
+      }
+      const current = event.target.closest(".avatar-option");
+      if (!current) return;
+      event.preventDefault();
+      const row = current.parentElement;
+      const next = event.key === "ArrowUp" ? row.previousElementSibling : row.nextElementSibling;
+      if (!next || !next.classList.contains("avatar-row")) return;
+      const middle = (box) => box.left + box.width / 2;
+      if (goalX === null) goalX = middle(current.getBoundingClientRect());
+      const x = goalX;
+      let nearest = null;
+      let best = Infinity;
+      next.querySelectorAll(".avatar-option").forEach((option) => {
+        const gap = Math.abs(middle(option.getBoundingClientRect()) - x);
+        if (gap < best) { best = gap; nearest = option; }
+      });
+      const input = nearest.querySelector("input");
+      input.focus();
+      input.click(); // checks it and fires "change", as the arrow keys do
+    });
 
     document.getElementById("avatar-shuffle").addEventListener("click", () => {
       fill(chosen());

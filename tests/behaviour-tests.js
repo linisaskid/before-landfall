@@ -1547,11 +1547,36 @@
     page.$("#avatar-shuffle").click();
     assert.equal(checked().value, picked, "shuffle keeps the picked picture");
     assert.equal(options().indexOf(checked()), 17, "and moves it to the middle");
+
+    // Up and Down move between rows (rows of 5, 8, 9, 8 and 5), aiming at the column the run started from.
+    const position = () => {
+      const rows = page.$$("#avatar-field .avatar-row");
+      const row = rows.indexOf(checked().closest(".avatar-row"));
+      return [row, Array.from(rows[row].children).indexOf(checked().parentElement)];
+    };
+    const press = (name) => key(page.doc.activeElement, name);
+    assert.deepEqual(sounds(), ["select", "push"], "picking, shuffling");
+    checked().focus(); // Shuffle keeps focus on its own button
+    press("ArrowDown");
+    assert.equal(position()[0], 3, "Down goes to the row below, not along the row");
+    press("ArrowDown");
+    assert.deepEqual(position(), [4, 2], "and on to the middle of the bottom row");
+    press("ArrowDown");
+    assert.deepEqual(position(), [4, 2], "the bottom row stops");
+    press("ArrowUp");
+    press("ArrowUp");
+    assert.deepEqual(position(), [2, 4], "Up twice comes back to the middle without drifting");
+    press("ArrowUp");
+    press("ArrowUp");
+    press("ArrowUp");
+    assert.deepEqual(position(), [0, 2], "the top row stops");
+    assert.equal(page.doc.activeElement, checked(), "focus follows the picked picture");
+    assert.equal(sounds().length, 6, "each move that picks a new picture plays a sound");
     page.$("#avatar-cancel").click();
     assert.ok(!dialog.open, "cancel closes the picker");
     assert.ok(!stored(COMMUNITY.users).find((user) => user.id === "u-pic").avatar, "cancel saves nothing");
     assert.equal(headerPicture(page), before, "and the header keeps the old picture");
-    assert.deepEqual(sounds(), ["select", "push", "pop"], "picking, shuffling, cancelling");
+    assert.deepEqual(sounds(), ["pop"], "cancelling");
 
     page.$("#change-avatar-button").click();
     assert.equal(checked().value, original, "reopening starts from the saved picture again");
