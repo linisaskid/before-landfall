@@ -7,7 +7,8 @@
  *   2. Headline line reveals (SplitText)
  *   3. Parallax on illustrations
  *   4. WebGL cyclone behind the hero panel
- *   5. Start
+ *   5. Soft bottom edge
+ *   6. Start
  */
 (function () {
   "use strict";
@@ -344,13 +345,41 @@
   }
 
   // ==========================================================================
-  // 5. Start
+  // 5. Soft bottom edge
+  // Text scrolling off the bottom of the screen goes soft instead of being cut
+  // by the window's edge: five stacked backdrop blurs, each stronger and lower
+  // than the last (motion.css). It fades away near the end of the page, so the
+  // footer's last row is never under it.
+  // ==========================================================================
+
+  function initEdge() {
+    const edge = document.createElement("div");
+    edge.className = "motion-edge";
+    edge.setAttribute("aria-hidden", "true");
+    for (let i = 0; i < 5; i += 1) edge.appendChild(document.createElement("i"));
+    document.body.appendChild(edge);
+
+    let frame = 0;
+    function update() {
+      frame = 0;
+      const below = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+      edge.classList.toggle("is-off", below < 160);
+    }
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule, { passive: true });
+    update();
+  }
+
+  // ==========================================================================
+  // 6. Start
   // ==========================================================================
 
   safely("gsap plugins", () => { if (hasGsap) gsap.registerPlugin(ScrollTrigger); });
   safely("progress", initProgress);
   safely("cyclone", initCyclone);
   safely("parallax", initParallax);
+  safely("edge", initEdge);
 
   // Headings are split once the web fonts are in, so the line breaks are final.
   function finish() {

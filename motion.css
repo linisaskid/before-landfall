@@ -42,10 +42,39 @@ html.motion-pending :is(.hero-text h1, .support-hero-copy h1, .section-heading h
 }
 .hero-cyclone.is-live { opacity: 1; }
 
+/* Soft bottom edge (motion.js). Each layer blurs a band of the strip, and the
+   bands overlap, so the blur builds smoothly from nothing to 8px at the very edge. */
+.motion-edge {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 15;
+  height: 3.5rem;
+  pointer-events: none;
+  transition: opacity var(--d4) var(--ease-out);
+}
+.motion-edge.is-off { opacity: 0; }
+.motion-edge i {
+  position: absolute;
+  inset: 0;
+  -webkit-backdrop-filter: blur(var(--edge-blur));
+  backdrop-filter: blur(var(--edge-blur));
+  -webkit-mask-image: linear-gradient(to bottom, transparent var(--m0), #000 var(--m1), #000 var(--m2), transparent var(--m3));
+  mask-image: linear-gradient(to bottom, transparent var(--m0), #000 var(--m1), #000 var(--m2), transparent var(--m3));
+}
+.motion-edge i:nth-child(1) { --edge-blur: .5px; --m0: 0%;  --m1: 20%;  --m2: 40%;  --m3: 60%; }
+.motion-edge i:nth-child(2) { --edge-blur: 1px;  --m0: 20%; --m1: 40%;  --m2: 60%;  --m3: 80%; }
+.motion-edge i:nth-child(3) { --edge-blur: 2px;  --m0: 40%; --m1: 60%;  --m2: 80%;  --m3: 100%; }
+.motion-edge i:nth-child(4) { --edge-blur: 4px;  --m0: 60%; --m1: 80%;  --m2: 100%; --m3: 101%; }
+.motion-edge i:nth-child(5) { --edge-blur: 8px;  --m0: 80%; --m1: 100%; --m2: 100%; --m3: 101%; }
+/* Phones keep every pixel of their short screens, and some people ask for less see-through. */
+@media (max-width: 40rem), (prefers-reduced-transparency: reduce) {
+  .motion-edge { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html.motion-pending :is(.hero-text h1, .support-hero-copy h1, .section-heading h2, .why-intro h2, .history-heading h2, .reference-toolbar h2, .next-step h2, .official-copy h2, #tools-title) { visibility: visible; animation: none; }
   .motion-progress { display: none; }
 }
 @media print {
-  .motion-progress, .hero-cyclone { display: none !important; }
+  .motion-progress, .hero-cyclone, .motion-edge { display: none !important; }
 }
