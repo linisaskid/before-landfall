@@ -105,13 +105,35 @@
       <p class="form-error" id="account-storage-note" role="alert" hidden>Your browser is blocking storage for this site, so you cannot log in or register. Allow site data in your browser settings and reload the page.</p>
 
       <div class="account-card signed-in-card" id="signed-in-card" data-smooth hidden>
-        <h2>You’re logged in</h2>
-        <p>Signed in as <strong id="signed-in-name">Member</strong> (<span id="signed-in-username">@member</span>), <span id="signed-in-role">a member</span>.</p>
+        <div class="signed-in-head">
+          <span class="signed-in-avatar" id="signed-in-avatar" aria-hidden="true"></span>
+          <div>
+            <h2>You’re logged in</h2>
+            <p>Signed in as <strong id="signed-in-name">Member</strong> (<span id="signed-in-username">@member</span>), <span id="signed-in-role">a member</span>.</p>
+          </div>
+        </div>
         <div class="form-actions">
           <a class="button" href="community.html">Go to the community</a>
+          <button class="button button--quiet" type="button" id="change-avatar-button" aria-haspopup="dialog">Change avatar</button>
           <button class="button button--quiet" type="button" id="log-out-button">Log out</button>
         </div>
+        <p class="status-message" id="avatar-status" role="status"></p>
       </div>
+
+      <dialog class="avatar-dialog" id="avatar-dialog" aria-labelledby="avatar-dialog-title" aria-describedby="avatar-dialog-help">
+        <form id="avatar-form" method="dialog">
+          <h2 id="avatar-dialog-title">Choose an avatar</h2>
+          <p id="avatar-dialog-help">Pick a picture to show next to your name in the community. Shuffle for more.</p>
+          <fieldset class="avatar-field" id="avatar-field">
+            <legend class="visually-hidden">Avatars</legend>
+          </fieldset>
+          <div class="avatar-dialog-actions">
+            <button class="button button--quiet" type="button" id="avatar-shuffle">Shuffle</button>
+            <button class="button button--quiet" type="button" id="avatar-cancel">Cancel</button>
+            <button class="button" type="submit" id="avatar-save">Save</button>
+          </div>
+        </form>
+      </dialog>
 
       <div class="account-grid" id="account-forms">
         <section class="account-card" id="log-in" aria-labelledby="login-title" data-smooth>

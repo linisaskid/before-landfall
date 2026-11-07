@@ -1482,7 +1482,7 @@
     noErrors(page);
   });
 
-  test("account: other tabs, waiting group admins, an emoji initial and 'keep me logged in' when registering", async () => {
+  test("account: other tabs, waiting group admins, an emoji name and 'keep me logged in' when registering", async () => {
     let page = await openPage("account.html");
     fillRegister(page, { name: "Su", username: "su_test", email: "su@example.com", password: "monsoon2026", confirm: "monsoon2026", agree: true });
     page.$("#register-remember").click();
@@ -1500,7 +1500,8 @@
 
     signedIn({ id: "u-emoji", name: "🌀 Storm", username: "storm", email: "", salt: "", hash: "", role: "member", joined: Date.UTC(2026, 0, 1) });
     page = await openPage("account.html");
-    assert.equal(text(page.$("#account-link .account-avatar")), "🌀", "an emoji stays whole in the avatar");
+    assert.ok(page.$("#account-link .account-avatar svg"), "a name starting with an emoji still gets a picture");
+    assert.equal(text(page.$("#account-link .account-label")), "🌀 Storm", "and the name stays whole");
     assert.ok(!page.$("#signed-in-card").hidden);
     localStorage.removeItem(COMMUNITY.session); // as another tab logging out would
     await sleep(150);
@@ -1515,6 +1516,77 @@
     localStorage.removeItem(COMMUNITY.session);
     await sleep(150);
     assert.equal(text(other.$("#account-link .account-label")), "Log in", "the header on other pages follows too");
+  }, { timeout: 60000 });
+
+  test("account: the avatar picker keeps the current picture in the middle, cancels, saves, and the picture follows the member", async () => {
+    const member = { id: "u-pic", name: "Pic", username: "pic_test", email: "", salt: "", hash: "", role: "member", joined: Date.UTC(2026, 0, 1) };
+    signedIn(member);
+    const headerPicture = (p) => p.$("#account-link .account-avatar svg").outerHTML;
+    const before = headerPicture(await openPage("prepare.html"));
+    let page = await openPage("account.html");
+    const sounds = soundsOf(page);
+    assert.equal(headerPicture(page), before, "with no choice yet, the picture is the same on every page");
+    assert.equal(page.$("#signed-in-avatar svg").outerHTML, before, "the card shows the same picture as the header");
+
+    const dialog = page.$("#avatar-dialog");
+    const options = () => page.$$("#avatar-field input[name='avatar']");
+    const checked = () => page.$("#avatar-field input:checked");
+    page.$("#change-avatar-button").click();
+    assert.ok(dialog.open, "the picker opens");
+    assert.equal(options().length, 35, "35 pictures");
+    assert.equal(new Set(options().map((input) => input.value)).size, 35, "no picture twice");
+    assert.equal(page.doc.activeElement, checked(), "focus starts on the current picture");
+    assert.equal(options().indexOf(checked()), 17, "the current picture sits in the middle");
+    assert.ok(options().every((input) => input.labels[0] && /^[A-Z][a-z ]+ on [a-z ]+$/.test(text(input.labels[0]))), "every picture has a spoken name");
+    const original = checked().value;
+    assert.deepEqual(sounds(), ["push"], "opening");
+
+    options()[3].click();
+    const picked = checked().value;
+    assert.ok(picked !== original, "a click picks another picture");
+    page.$("#avatar-shuffle").click();
+    assert.equal(checked().value, picked, "shuffle keeps the picked picture");
+    assert.equal(options().indexOf(checked()), 17, "and moves it to the middle");
+    page.$("#avatar-cancel").click();
+    assert.ok(!dialog.open, "cancel closes the picker");
+    assert.ok(!stored(COMMUNITY.users).find((user) => user.id === "u-pic").avatar, "cancel saves nothing");
+    assert.equal(headerPicture(page), before, "and the header keeps the old picture");
+    assert.deepEqual(sounds(), ["select", "push", "pop"], "picking, shuffling, cancelling");
+
+    page.$("#change-avatar-button").click();
+    assert.equal(checked().value, original, "reopening starts from the saved picture again");
+    const choice = options()[0];
+    choice.click();
+    const [glyph, colour] = choice.value.split(":");
+    page.$("#avatar-save").click();
+    assert.ok(!dialog.open, "save closes the picker");
+    assert.deepEqual(stored(COMMUNITY.users).find((user) => user.id === "u-pic").avatar, { glyph, colour }, "the choice is saved on the account");
+    assert.match(text(page.$("#avatar-status")), /^Avatar saved: .+ on .+\.$/, "the save is announced");
+    assert.ok(headerPicture(page) !== before, "the header shows the new picture straight away");
+    assert.equal(page.$("#signed-in-avatar svg").outerHTML, headerPicture(page), "and so does the card");
+    assert.deepEqual(sounds().slice(-1), ["success"], "saving");
+    noErrors(page);
+
+    page = await openPage("community.html");
+    const after = headerPicture(page);
+    assert.ok(after !== before, "the new picture shows on other pages");
+    assert.equal(page.$("#community-session .account-avatar svg").outerHTML, after, "and next to 'Logged in as'");
+    assert.ok(page.$$("#post-list .post-card .post-meta .author-avatar svg").length > 0, "post authors show their pictures");
+    noErrors(page);
+
+    page = await openPage("account.html", { width: 375 });
+    page.$("#change-avatar-button").click();
+    assert.equal(options().length, 19, "a phone gets a smaller honeycomb");
+    assert.equal(options().indexOf(checked()), 9, "still with the current picture in the middle");
+    assert.ok(checked().parentElement.getBoundingClientRect().width >= 44, "the middle picture is at least 44 px, big enough to tap");
+    assert.none(overflow(page), "nothing sticks out of a phone screen");
+    page.$("#avatar-cancel").click();
+
+    // A damaged or made-up picture falls back to the member's own default.
+    signedIn(Object.assign({}, member, { avatar: { glyph: "<b>", colour: "red" } }));
+    page = await openPage("account.html");
+    assert.equal(headerPicture(page), before, "an unknown picture is ignored");
+    noErrors(page);
   }, { timeout: 60000 });
 
   test("account: a logged-in name never pushes the header's account link onto a row of its own", async () => {
@@ -1563,7 +1635,7 @@
       if (r < 0.5) return "s".repeat(Math.floor(pick() * 300));
       if (r < 0.75) return Array.from({ length: Math.floor(pick() * 8) }, () => value(depth + 1));
       const keys = ["distance", "speed", "hours", "arrival", "title", "task", "when", "person", "who", "tasks", "planName", "household", "householdName", "shelter", "meeting", "meetingPlace", "routeOne", "contact",
-        "id", "userId", "username", "name", "role", "hash", "date", "time", "status", "going", "body", "replies", "pinned", "created", "__proto__", "constructor"];
+        "id", "userId", "username", "name", "role", "hash", "avatar", "glyph", "colour", "date", "time", "status", "going", "body", "replies", "pinned", "created", "__proto__", "constructor"];
       const object = {};
       for (let i = Math.floor(pick() * 6); i > 0; i -= 1) object[keys[Math.floor(pick() * keys.length)]] = value(depth + 1);
       return object;

@@ -118,6 +118,7 @@
       hash: typeof raw.hash === "string" && /^[0-9a-f]{64}$/.test(raw.hash) ? raw.hash : "",
       role: raw.role === "admin" ? "admin" : "member",
       joined: isTime(raw.joined) ? raw.joined : Date.now(),
+      avatar: cleanAvatar(raw.avatar), // null until they choose one
     };
   }
 
@@ -384,6 +385,89 @@
     return element;
   }
 
+  // --- Avatars ----------------------------------------------------------------
+  // Each member's round picture is one storm or preparedness glyph on a coloured circle.
+  // The colours are the site's own, fixed so a picture looks the same in either theme.
+  // The evacuate red is left out on purpose: on this site red means "leave now", and a
+  // person's picture should never read as a warning.
+  const AVATAR_COLOURS = {
+    sea: { label: "sea blue", bg: "#17697a", fg: "#fbe8c0" },
+    teal: { label: "teal", bg: "#2596a8", fg: "#f3f7f6" },
+    amber: { label: "amber", bg: "#e8a317", fg: "#10303f" },
+    midnight: { label: "midnight", bg: "#10303f", fg: "#e8a317" },
+    shallows: { label: "pale blue", bg: "#d9eeee", fg: "#17697a" },
+    sand: { label: "sand", bg: "#fbe8c0", fg: "#17697a" },
+    coral: { label: "pale coral", bg: "#fbdcd8", fg: "#10303f" },
+    navy: { label: "navy", bg: "#10303f", fg: "#d9eeee" },
+  };
+
+  // Two drawing styles. "pixels" is a 7 by 7 grid of chunky squares; "lines" is a list of
+  // SVG shapes drawn with a thick round stroke, and shapes marked solid are filled instead.
+  const AVATAR_GLYPHS = {
+    shelter: { label: "Shelter", pixels: ["...#...", "..###..", ".#####.", "#######", ".##.##.", ".##.##.", ".##.##."] },
+    lightning: { label: "Lightning", pixels: ["....##.", "...##..", "..##...", ".#####.", "...##..", "..##...", ".##...."] },
+    firstaid: { label: "First aid", pixels: ["..###..", "..###..", "#######", "#######", "#######", "..###..", "..###.."] },
+    eye: { label: "Storm eye", pixels: ["..###..", ".#####.", "##...##", "##...##", "##...##", ".#####.", "..###.."] },
+    flag: { label: "Warning flag", pixels: ["######.", "##..##.", "##..##.", "######.", "#......", "#......", "#......"] },
+    // The tropical cyclone symbol as drawn for the northern hemisphere, this site's region.
+    cyclone: { label: "Cyclone", lines: [["circle", { cx: 50, cy: 50, r: 9 }], ["path", { d: "M50 41Q50 25 70 24M50 59Q50 75 30 76" }]] },
+    wind: { label: "Wind", lines: [["path", { d: "M26 40H58a8 8 0 1 0-8-8M26 52H70M26 64H54a8 8 0 1 1-8 8" }]] },
+    waves: { label: "Waves", lines: [["path", { d: "M26 43q6-8 12 0t12 0t12 0t12 0M26 59q6-8 12 0t12 0t12 0t12 0" }]] },
+    track: { label: "Storm track", lines: [["path", { d: "M30 70L39 57L50 49L61 42L71 32" }],
+      ["circle", { cx: 30, cy: 70, r: 5, solid: true }], ["circle", { cx: 39, cy: 57, r: 5, solid: true }], ["circle", { cx: 50, cy: 49, r: 5, solid: true }],
+      ["circle", { cx: 61, cy: 42, r: 5, solid: true }], ["circle", { cx: 71, cy: 32, r: 8, solid: true }]] },
+    rain: { label: "Rain", lines: [["path", { d: "M34 28l-5 10M52 28l-5 10M70 28l-5 10M43 46l-5 10M61 46l-5 10M34 64l-5 10M52 64l-5 10M70 64l-5 10" }]] },
+    raindrop: { label: "Raindrop", lines: [["path", { d: "M50 23C44 34 32 46 32 58a18 18 0 0 0 36 0C68 46 56 34 50 23z", solid: true }]] },
+    allclear: { label: "All clear", lines: [["circle", { cx: 50, cy: 50, r: 10 }], ["path", { d: "M50 26v6M50 68v6M26 50h6M68 50h6M33 33l4 4M63 63l4 4M33 67l4-4M63 37l4-4" }]] },
+  };
+  const GLYPH_NAMES = Object.keys(AVATAR_GLYPHS);
+  const COLOUR_NAMES = Object.keys(AVATAR_COLOURS);
+  const ALL_AVATARS = GLYPH_NAMES.flatMap((glyph) => COLOUR_NAMES.map((colour) => ({ glyph, colour })));
+
+  const cleanAvatar = (raw) =>
+    isObject(raw) && Object.hasOwn(AVATAR_GLYPHS, raw.glyph) && Object.hasOwn(AVATAR_COLOURS, raw.colour) ? { glyph: raw.glyph, colour: raw.colour } : null;
+  const sameAvatar = (a, b) => a.glyph === b.glyph && a.colour === b.colour;
+  const avatarLabel = (avatar) => AVATAR_GLYPHS[avatar.glyph].label + " on " + AVATAR_COLOURS[avatar.colour].label;
+
+  // Someone who has not chosen a picture still gets one, worked out from their id, so it
+  // stays the same on every page and every visit.
+  function avatarFor(user) {
+    const chosen = user && cleanAvatar(user.avatar);
+    if (chosen) return chosen;
+    let hash = 2166136261; // FNV-1a
+    for (const ch of String(user ? user.id : "")) hash = Math.imul(hash ^ ch.codePointAt(0), 16777619);
+    return ALL_AVATARS[(hash >>> 0) % ALL_AVATARS.length];
+  }
+
+  // Draws the picture as SVG. Built with createElementNS from the fixed lists above, so
+  // nothing a visitor typed or saved ever becomes markup.
+  function avatarSvg(avatar) {
+    const { bg, fg } = AVATAR_COLOURS[avatar.colour];
+    const glyph = AVATAR_GLYPHS[avatar.glyph];
+    const make = (tag, attrs) => {
+      const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      Object.entries(attrs).forEach(([name, value]) => node.setAttribute(name, value));
+      return node;
+    };
+    const svg = make("svg", { viewBox: "0 0 100 100", "aria-hidden": "true", focusable: "false" });
+    svg.append(make("circle", { cx: 50, cy: 50, r: 50, fill: bg }));
+    if (glyph.pixels) {
+      // One path of 7-unit squares, each a hair larger so no seam shows between them.
+      let d = "";
+      glyph.pixels.forEach((row, y) => Array.from(row).forEach((cell, x) => {
+        if (cell === "#") d += "M" + (25.45 + x * 7) + " " + (25.45 + y * 7) + "h7.1v7.1h-7.1z";
+      }));
+      svg.append(make("path", { d, fill: fg }));
+    } else {
+      glyph.lines.forEach(([tag, { solid, ...attrs }]) => {
+        svg.append(make(tag, Object.assign(attrs, solid
+          ? { fill: fg }
+          : { fill: "none", stroke: fg, "stroke-width": 6.5, "stroke-linecap": "round", "stroke-linejoin": "round" })));
+      });
+    }
+    return svg;
+  }
+
   // Splits typed text into paragraphs at blank lines.
   function paragraphs(text) {
     return text.split(/\n\s*\n/).map((part) => el("p", { text: part.trim() })).filter((p) => p.textContent);
@@ -409,19 +493,15 @@
     return user ? user.name : "Former member";
   }
 
+  // The author's picture beside their name. A former member's posts show none.
+  function authorAvatar(users, id) {
+    const user = users.find((item) => item.id === id);
+    return user ? el("span", { className: "author-avatar", "aria-hidden": "true" }, [avatarSvg(avatarFor(user))]) : null;
+  }
+
   function roleBadge(users, id) {
     const user = users.find((item) => item.id === id);
     return user && user.role === "admin" ? el("span", { className: "role-badge", text: "Admin" }) : null;
-  }
-
-  // The first character of a name, for the round avatar. A name may start with an emoji
-  // or a letter built from several code points, and charAt(0) would cut those in half.
-  function initial(name) {
-    try {
-      const first = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(name)[Symbol.iterator]().next().value;
-      if (first) return first.segment.toUpperCase();
-    } catch (error) {}
-    return (Array.from(name)[0] || "").toUpperCase();
   }
 
   // Shows or clears a field's error message and marks the field for screen readers.
@@ -453,7 +533,7 @@
     const avatar = link.querySelector(".account-avatar");
     link.classList.toggle("is-signed-in", !!user);
     if (label) label.textContent = user ? user.name : "Log in";
-    if (avatar) avatar.textContent = user ? initial(user.name) : "";
+    if (avatar) avatar.replaceChildren(...(user ? [avatarSvg(avatarFor(user))] : []));
     // On some widths only the avatar shows, so the tooltip names who is logged in.
     if (user) link.setAttribute("title", "Logged in as " + user.name + " (" + (isAdmin(user) ? "admin" : "member") + ")");
     else link.removeAttribute("title");
@@ -489,9 +569,12 @@
         document.getElementById("signed-in-name").textContent = user.name;
         document.getElementById("signed-in-role").textContent = isAdmin(user) ? "an admin" : "a member";
         document.getElementById("signed-in-username").textContent = "@" + user.username;
+        document.getElementById("signed-in-avatar").replaceChildren(avatarSvg(avatarFor(user)));
       }
       updateAccountLink();
     }
+
+    setUpAvatarPicker(showState);
 
     // Logging in or out in another tab, or coming back to this page from the browser's
     // back/forward cache, can change who is logged in.
@@ -504,6 +587,7 @@
 
     document.getElementById("log-out-button").addEventListener("click", () => {
       logOut();
+      document.getElementById("avatar-status").textContent = "";
       showState();
       sound("pop");
       document.getElementById("login-id").focus();
@@ -688,6 +772,111 @@
     showState();
   }
 
+  // "Change avatar": a honeycomb of pictures in a dialog, the current one in the middle.
+  // It is a group of radio buttons, so arrow keys move between pictures and screen readers
+  // hear each one's name ("Cyclone on amber").
+  function setUpAvatarPicker(showState) {
+    const dialog = document.getElementById("avatar-dialog");
+    const field = document.getElementById("avatar-field");
+    const form = document.getElementById("avatar-form");
+    const openButton = document.getElementById("change-avatar-button");
+    const status = document.getElementById("avatar-status");
+    // Very old browsers have no <dialog>; they keep the default picture.
+    if (typeof dialog.showModal !== "function") {
+      openButton.hidden = true;
+      return;
+    }
+
+    // Nine across at most; a phone gets a smaller honeycomb so each picture stays big
+    // enough to tap.
+    const WIDE = [5, 8, 9, 8, 5];
+    const NARROW = [3, 4, 5, 4, 3];
+
+    function shuffled(list) {
+      const copy = list.slice();
+      for (let i = copy.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function chosen() {
+      const input = field.querySelector("input:checked");
+      const [glyph, colour] = input ? input.value.split(":") : [];
+      return cleanAvatar({ glyph, colour });
+    }
+
+    // Lays out a fresh random mix around `keep`, which sits checked in the centre.
+    function fill(keep) {
+      const rows = field.clientWidth < 420 ? NARROW : WIDE;
+      const middle = Math.floor(rows.length / 2);
+      const others = shuffled(ALL_AVATARS.filter((avatar) => !sameAvatar(avatar, keep)));
+      field.querySelectorAll(".avatar-row").forEach((row) => row.remove());
+      field.style.setProperty("--per-row", Math.max(...rows));
+      rows.forEach((count, r) => {
+        const row = el("div", { className: "avatar-row" });
+        for (let i = 0; i < count; i += 1) {
+          const centre = r === middle && i === (count - 1) / 2;
+          const avatar = centre ? keep : others.pop();
+          // Biggest in the middle, smaller and fainter towards the edges.
+          const distance = Math.hypot(i - (count - 1) / 2, (r - middle) * 1.3);
+          const option = el("label", { className: "avatar-option" + (distance > 2.6 ? " is-far" : ""), title: avatarLabel(avatar) }, [
+            el("input", { type: "radio", name: "avatar", className: "visually-hidden", value: avatar.glyph + ":" + avatar.colour, checked: centre }),
+            avatarSvg(avatar),
+            el("span", { className: "visually-hidden", text: avatarLabel(avatar) }),
+          ]);
+          option.style.setProperty("--scale", Math.max(0.55, 1 - distance * 0.1).toFixed(2));
+          row.append(option);
+        }
+        field.append(row);
+      });
+    }
+
+    openButton.addEventListener("click", () => {
+      const user = currentUser();
+      if (!user) return;
+      status.textContent = "";
+      dialog.showModal(); // first, so the honeycomb can measure the space it has
+      fill(avatarFor(user));
+      field.querySelector("input:checked").focus();
+      sound("push");
+    });
+
+    field.addEventListener("change", () => sound("select"));
+
+    document.getElementById("avatar-shuffle").addEventListener("click", () => {
+      fill(chosen());
+      sound("push");
+    });
+
+    document.getElementById("avatar-cancel").addEventListener("click", () => {
+      dialog.close();
+      sound("pop");
+    });
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const users = loadUsers();
+      const user = currentUser(users);
+      const avatar = chosen();
+      dialog.close();
+      if (!user || !avatar) {
+        showState();
+        return;
+      }
+      user.avatar = avatar;
+      if (!saveUsers(users)) {
+        status.textContent = "Your browser is blocking storage, so your avatar could not be saved.";
+        sound("nudge");
+        return;
+      }
+      showState();
+      status.textContent = "Avatar saved: " + avatarLabel(avatar) + ".";
+      sound("success");
+    });
+  }
+
   function setUpPasswordToggles() {
     document.querySelectorAll("[data-password-toggle]").forEach((button) => {
       const input = document.getElementById(button.getAttribute("aria-controls"));
@@ -812,7 +1001,7 @@
       box.replaceChildren();
       if (state.user) {
         box.append(
-          el("span", { className: "account-avatar", "aria-hidden": "true", text: initial(state.user.name) }),
+          el("span", { className: "account-avatar", "aria-hidden": "true" }, [avatarSvg(avatarFor(state.user))]),
           el("span", {}, [
             document.createTextNode("Logged in as "),
             el("strong", { text: state.user.name }),
@@ -1227,6 +1416,7 @@
 
       const replies = el("ol", { className: "reply-list", id: "replies-" + post.id, "data-focus-scope": true }, post.replies.slice().sort((a, b) => a.created - b.created).map((reply) => el("li", { className: "reply", "data-focus-item": reply.id }, [
         el("p", { className: "post-meta" }, [
+          authorAvatar(state.users, reply.authorId),
           el("strong", { text: authorName(state.users, reply.authorId) }),
           roleBadge(state.users, reply.authorId),
           document.createTextNode(" · " + timeAgo(reply.created)),
@@ -1286,6 +1476,7 @@
           ]),
           el("h3", { className: "post-title", id: "post-" + post.id + "-title", tabindex: "-1", "data-focus": "title:" + post.id, text: post.title }),
           el("p", { className: "post-meta" }, [
+            authorAvatar(state.users, post.authorId),
             el("strong", { text: authorName(state.users, post.authorId) }),
             roleBadge(state.users, post.authorId),
             document.createTextNode(" · " + timeAgo(post.created)),
