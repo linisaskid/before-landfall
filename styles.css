@@ -3001,22 +3001,21 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .avatar-dialog::backdrop { background: rgb(6 20 28 / .5); }
 .avatar-dialog h2 { font: var(--weight-bold) var(--text-lg)/1.2 var(--display); }
 .avatar-dialog p { margin-top: var(--space-half); color: var(--ink-soft); font: var(--text-sm)/1.5 var(--sans); }
-/* The honeycomb: rows of round radio buttons, sized from the dialog's width so nine
-   still fit across a phone. */
-.avatar-field { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); min-width: 0; margin: var(--space-3) 0; padding: 0; border: 0; container-type: inline-size; }
-.avatar-row { display: flex; align-items: center; justify-content: center; gap: 1.6cqi; }
+/* The honeycomb: every picture is placed and sized by community.js as it is dragged.
+   clip (not hidden) so focusing a picture can never scroll the stage. */
+.avatar-field { min-width: 0; margin: var(--space-3) 0; padding: 0; border: 0; }
+.avatar-stage { position: relative; overflow: clip; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.avatar-stage.is-dragging { cursor: grabbing; }
 .avatar-option {
-  position: relative;
-  flex: none;
-  width: calc(var(--scale) * min(5.25rem, 90cqi / var(--per-row, 9)));
-  height: calc(var(--scale) * min(5.25rem, 90cqi / var(--per-row, 9)));
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--size);
+  height: var(--size);
+  margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
   border-radius: 50%;
-  cursor: pointer;
-  transition: transform .15s ease, opacity .15s ease;
+  will-change: transform;
 }
-.avatar-option.is-far { opacity: .5; }
-.avatar-option:hover { transform: scale(1.06); }
-.avatar-option:hover, .avatar-option:has(:checked), .avatar-option:has(:focus-visible) { opacity: 1; }
 .avatar-option:has(:checked) { box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--sea); }
 .avatar-option:has(:focus-visible) { outline: 3px solid var(--focus); outline-offset: 7px; }
 .avatar-dialog-actions { display: flex; flex-wrap: wrap; gap: var(--space-1); padding-top: var(--space-2); border-top: 1px solid var(--rule); }
@@ -3024,10 +3023,6 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 @media (max-width: 29.99rem) {
   .avatar-dialog { padding: var(--space-2); }
   .avatar-dialog-actions .button { padding: var(--space-1) var(--space-2); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .avatar-option { transition: none; }
-  .avatar-option:hover { transform: none; }
 }
 .password-field { display: flex; align-items: stretch; overflow: hidden; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper); }
 .password-field:has([aria-invalid="true"]) { border-color: var(--c-evacuate); }

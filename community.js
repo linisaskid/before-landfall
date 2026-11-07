@@ -787,10 +787,19 @@
       return;
     }
 
-    // Nine across at most; a phone gets a smaller honeycomb so each picture stays big
-    // enough to tap.
-    const WIDE = [5, 8, 9, 8, 5];
-    const NARROW = [3, 4, 5, 4, 3];
+    // The pictures sit on a honeycomb that wraps round at its edges, so it can be dragged
+    // in any direction for as long as you like and every picture comes round again. They
+    // grow towards the middle and shrink and fade towards the edge, and the one in the
+    // middle is the pick: let go after a drag and the nearest one slides into the middle.
+    const stage = document.getElementById("avatar-stage");
+    const COLS = 12; // 12 by 8 cells hold all 96 pictures once. The number of rows must be
+    const ROWS = 8; // even, so the half-step rows still line up where the honeycomb wraps.
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    // size: one picture in px; dx, dy: the spacing; width, height: the stage; x, y: how far
+    // the honeycomb has been dragged.
+    const view = { size: 0, dx: 0, dy: 0, width: 0, height: 0, x: 0, y: 0 };
+    let options = []; // the labels, in honeycomb order, row by row
+    let frame = 0;
 
     function shuffled(list) {
       const copy = list.slice();
@@ -801,37 +810,112 @@
       return copy;
     }
 
+    const selectedIndex = () => options.findIndex((option) => option.querySelector("input").checked);
+
     function chosen() {
       const input = field.querySelector("input:checked");
       const [glyph, colour] = input ? input.value.split(":") : [];
       return cleanAvatar({ glyph, colour });
     }
 
-    // Lays out a fresh random mix around `keep`, which sits checked in the centre.
-    function fill(keep) {
-      goalX = null;
-      const rows = field.clientWidth < 420 ? NARROW : WIDE;
-      const middle = Math.floor(rows.length / 2);
-      const others = shuffled(ALL_AVATARS.filter((avatar) => !sameAvatar(avatar, keep)));
-      field.querySelectorAll(".avatar-row").forEach((row) => row.remove());
-      field.style.setProperty("--per-row", Math.max(...rows));
-      rows.forEach((count, r) => {
-        const row = el("div", { className: "avatar-row" });
-        for (let i = 0; i < count; i += 1) {
-          const centre = r === middle && i === (count - 1) / 2;
-          const avatar = centre ? keep : others.pop();
-          // Biggest in the middle, smaller and fainter towards the edges.
-          const distance = Math.hypot(i - (count - 1) / 2, (r - middle) * 1.3);
-          const option = el("label", { className: "avatar-option" + (distance > 2.6 ? " is-far" : ""), title: avatarLabel(avatar) }, [
-            el("input", { type: "radio", name: "avatar", className: "visually-hidden", value: avatar.glyph + ":" + avatar.colour, checked: centre }),
-            avatarSvg(avatar),
-            el("span", { className: "visually-hidden", text: avatarLabel(avatar) }),
-          ]);
-          option.style.setProperty("--scale", Math.max(0.55, 1 - distance * 0.1).toFixed(2));
-          row.append(option);
-        }
-        field.append(row);
+    // Keeps a position within half a period of the middle, which is what makes it wrap.
+    const wrap = (value, period) => ((value % period) + period * 1.5) % period - period / 2;
+    const cellOf = (index) => ({ c: index % COLS, r: Math.floor(index / COLS) });
+
+    // Where a picture is now, in px from the middle of the stage.
+    function place(index) {
+      const { c, r } = cellOf(index);
+      return {
+        x: wrap((c + (r % 2) / 2) * view.dx + view.x, COLS * view.dx),
+        y: wrap(r * view.dy + view.y, ROWS * view.dy),
+      };
+    }
+
+    function render() {
+      options.forEach((option, index) => {
+        const { x, y } = place(index);
+        // A fisheye: pictures shrink away from the middle, and the big ones near it are
+        // pushed apart (by up to 1.4 times) so they never touch. reach is 0 in the middle
+        // and 1 where, pushed, a picture lands just inside the stage's oval edge and has
+        // faded out. These numbers keep a gap of at least a tenth of a picture.
+        const inset = view.size * 0.3;
+        const edge = 1.4 - 0.38;
+        const reach = Math.hypot(x / ((view.width / 2 - inset) / edge), y / ((view.height / 2 - inset) / edge));
+        const scale = Math.max(0.3, 1 - 0.55 * reach * reach);
+        const push = 1.4 - 0.38 * Math.min(reach, 1);
+        option.style.transform = "translate(" + (x * push).toFixed(1) + "px, " + (y * push).toFixed(1) + "px) scale(" + scale.toFixed(3) + ")";
+        option.style.opacity = reach < 0.75 ? "" : Math.max(0, (1 - reach) / 0.25).toFixed(2);
+        option.style.visibility = reach < 1 ? "" : "hidden";
       });
+    }
+
+    // Sizes the honeycomb from the dialog's width: the middle picture is up to 66 px, and
+    // at least 48 px so the pictures near it stay easy to tap on a phone. That shows nine
+    // across the middle row on a wide screen (35 in all) and five on a phone (23).
+    function measure() {
+      view.width = stage.clientWidth;
+      view.size = Math.round(Math.min(66, Math.max(48, view.width / 9)));
+      view.dx = view.size * 0.96;
+      view.dy = view.dx * 0.87;
+      view.height = Math.round(view.dy * 5.6);
+      stage.style.height = view.height + "px";
+      stage.style.setProperty("--size", view.size + "px");
+    }
+
+    // How far to drag so this picture sits in the middle, by the shortest way round.
+    function offsetFor(index) {
+      const now = place(index);
+      return { x: view.x - now.x, y: view.y - now.y };
+    }
+
+    function glideTo(target) {
+      cancelAnimationFrame(frame);
+      if (reduceMotion.matches) {
+        view.x = target.x;
+        view.y = target.y;
+        render();
+        return;
+      }
+      const from = { x: view.x, y: view.y };
+      const start = performance.now();
+      const step = (now) => {
+        const t = Math.min(1, (now - start) / 260);
+        const eased = 1 - Math.pow(1 - t, 3);
+        view.x = from.x + (target.x - from.x) * eased;
+        view.y = from.y + (target.y - from.y) * eased;
+        render();
+        if (t < 1) frame = requestAnimationFrame(step);
+      };
+      frame = requestAnimationFrame(step);
+    }
+
+    const centreSelected = () => glideTo(offsetFor(selectedIndex()));
+
+    // Picks a picture the way a click on its radio button would, so "change" (which
+    // slides it to the middle and plays the sound) fires only when the pick changes.
+    function choose(option) {
+      const input = option.querySelector("input");
+      input.focus({ preventScroll: true });
+      if (input.checked) centreSelected();
+      else input.click();
+    }
+
+    // Lays out every picture in a fresh random order, with `keep` picked and in the middle.
+    function fill(keep) {
+      cancelAnimationFrame(frame);
+      measure();
+      options = shuffled(ALL_AVATARS).map((avatar) => el("label", { className: "avatar-option", title: avatarLabel(avatar) }, [
+        el("input", { type: "radio", name: "avatar", className: "visually-hidden", value: avatar.glyph + ":" + avatar.colour, checked: sameAvatar(avatar, keep) }),
+        avatarSvg(avatar),
+        el("span", { className: "visually-hidden", text: avatarLabel(avatar) }),
+      ]));
+      stage.replaceChildren(...options);
+      view.x = 0;
+      view.y = 0;
+      const middle = offsetFor(selectedIndex());
+      view.x = middle.x;
+      view.y = middle.y;
+      render();
     }
 
     openButton.addEventListener("click", () => {
@@ -840,42 +924,80 @@
       status.textContent = "";
       dialog.showModal(); // first, so the honeycomb can measure the space it has
       fill(avatarFor(user));
-      field.querySelector("input:checked").focus();
+      field.querySelector("input:checked").focus({ preventScroll: true });
       sound("push");
     });
 
-    field.addEventListener("change", () => sound("select"));
+    field.addEventListener("change", () => {
+      centreSelected();
+      sound("select");
+    });
 
-    // Radio buttons only know page order, so on their own Up and Down step sideways
-    // along a row like Left and Right. In the honeycomb they go to the nearest picture in
-    // the row above or below instead, and stop at the top and bottom rows. Rows sit half a
-    // picture apart, so a run of Up and Down presses aims at the column it started from,
-    // the way a text cursor does; otherwise down-then-up would drift sideways.
-    let goalX = null;
-    field.addEventListener("pointerdown", () => { goalX = null; });
-    field.addEventListener("keydown", (event) => {
-      if ((event.key !== "ArrowUp" && event.key !== "ArrowDown") || event.altKey || event.ctrlKey || event.metaKey) {
-        goalX = null;
-        return;
+    // --- Dragging, and tapping a picture ----------------------------------------
+    let drag = null;
+    stage.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || drag) return;
+      cancelAnimationFrame(frame);
+      drag = { id: event.pointerId, startX: event.clientX, startY: event.clientY, x: view.x, y: view.y, moved: false, option: event.target.closest(".avatar-option") };
+      try { stage.setPointerCapture(event.pointerId); } catch (error) {}
+    });
+    stage.addEventListener("pointermove", (event) => {
+      if (!drag || event.pointerId !== drag.id) return;
+      const dx = event.clientX - drag.startX;
+      const dy = event.clientY - drag.startY;
+      // A few px of wobble still counts as a tap.
+      if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+      drag.moved = true;
+      stage.classList.add("is-dragging");
+      view.x = drag.x + dx;
+      view.y = drag.y + dy;
+      render();
+    });
+    function endDrag(event) {
+      if (!drag || event.pointerId !== drag.id) return;
+      const { moved, option } = drag;
+      drag = null;
+      stage.classList.remove("is-dragging");
+      // A tap picks the tapped picture; a drag picks whichever ended up nearest the middle.
+      let pick = moved ? null : option;
+      if (moved || event.type === "pointercancel") {
+        let best = Infinity;
+        options.forEach((candidate, index) => {
+          const { x, y } = place(index);
+          if (Math.hypot(x, y) < best) { best = Math.hypot(x, y); pick = candidate; }
+        });
       }
-      const current = event.target.closest(".avatar-option");
-      if (!current) return;
+      if (pick) choose(pick);
+      else centreSelected();
+    }
+    stage.addEventListener("pointerup", endDrag);
+    stage.addEventListener("pointercancel", endDrag);
+    // Taps are handled on pointerup, so a label's own click must not pick a second time.
+    // Clicks on the radio buttons themselves (Space, or a script) still go through.
+    stage.addEventListener("click", (event) => {
+      if (event.target.name !== "avatar") event.preventDefault();
+    });
+
+    // --- Keys ---------------------------------------------------------------------
+    // Radio buttons would step through the pictures in page order. Here every arrow goes to
+    // the neighbouring picture on the honeycomb, wrapping round like a drag, and brings it
+    // to the middle. Up and Down keep the column, so Up undoes Down.
+    const STEPS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    field.addEventListener("keydown", (event) => {
+      const step = STEPS[event.key];
+      if (!step || event.altKey || event.ctrlKey || event.metaKey || event.target.name !== "avatar") return;
       event.preventDefault();
-      const row = current.parentElement;
-      const next = event.key === "ArrowUp" ? row.previousElementSibling : row.nextElementSibling;
-      if (!next || !next.classList.contains("avatar-row")) return;
-      const middle = (box) => box.left + box.width / 2;
-      if (goalX === null) goalX = middle(current.getBoundingClientRect());
-      const x = goalX;
-      let nearest = null;
-      let best = Infinity;
-      next.querySelectorAll(".avatar-option").forEach((option) => {
-        const gap = Math.abs(middle(option.getBoundingClientRect()) - x);
-        if (gap < best) { best = gap; nearest = option; }
-      });
-      const input = nearest.querySelector("input");
-      input.focus();
-      input.click(); // checks it and fires "change", as the arrow keys do
+      const { c, r } = cellOf(selectedIndex());
+      choose(options[((r + step[1] + ROWS) % ROWS) * COLS + (c + step[0] + COLS) % COLS]);
+    });
+
+    window.addEventListener("resize", () => {
+      if (!dialog.open || !options.length) return;
+      measure();
+      const middle = offsetFor(selectedIndex());
+      view.x = middle.x;
+      view.y = middle.y;
+      render();
     });
 
     document.getElementById("avatar-shuffle").addEventListener("click", () => {
