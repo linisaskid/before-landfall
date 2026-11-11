@@ -185,7 +185,7 @@
     assert.none(missing, "missing files");
   });
 
-  test("static: no external scripts, styles, fonts or network calls (Wikimedia photos are the one exception)", async () => {
+  test("static: no external scripts, styles, fonts or network calls (Wikimedia photos and the GDACS storm check are the exceptions)", async () => {
     const problems = [];
     for (const page of PAGES) {
       const doc = await getDoc(page);
@@ -213,7 +213,16 @@
       if (/url\(\s*["']?(?:[a-z]+:)?\/\//i.test(css)) problems.push(sheet + ": loads a url() from another site");
     }
     for (const file of [...SITE_SCRIPTS, ...LIB_SCRIPTS]) {
-      const js = await getText(file);
+      let js = await getText(file);
+      // The calculator's live storm check is the one network call on the site. It lives in a
+      // single function in script.js that refuses every address outside the GDACS API.
+      if (file === "script.js") {
+        const calls = js.match(/\bfetch\(/g) || [];
+        const gate = /async function getGdacs\(url\) \{\s*if \(!String\(url\)\.startsWith\(GDACS_API\)\) throw/;
+        if (calls.length !== 1 || !gate.test(js)) problems.push(file + ": expected exactly one fetch(, inside getGdacs and behind its address check (found " + calls.length + ")");
+        if (!js.includes('const GDACS_API = "https://www.gdacs.org/gdacsapi/api/";')) problems.push(file + ": GDACS_API is not the GDACS address");
+        js = js.replace(/\bfetch\(/, "");
+      }
       const match = /\b(fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts)|\bimport\(/.exec(js);
       if (match) problems.push(file + ": network call (" + match[0] + ")");
     }

@@ -126,6 +126,26 @@
         <p>Use figures from a current official forecast. If you’re learning how the formula works, start with one of the examples.</p>
       </div>
 
+      <!-- Shown by script.js. Nothing is requested until the visitor presses "Check now". -->
+      <section class="live-storm" id="live-storm" data-smooth data-storm="idle" aria-labelledby="live-storm-title" hidden>
+        <div class="live-storm-text">
+          <p class="eyebrow" id="live-storm-kicker">Live check</p>
+          <h3 id="live-storm-title">Is a storm heading for the delta right now?</h3>
+          <p class="live-storm-status" id="live-storm-status" role="status">Look up the latest storm positions and this page works out the two numbers for you.</p>
+          <p class="live-storm-detail" id="live-storm-detail" hidden></p>
+        </div>
+        <div class="live-storm-actions">
+          <button class="button button--small" id="live-storm-check" type="button">Check now</button>
+          <button class="button button--small" id="live-storm-use" type="button" hidden>Use these numbers <span aria-hidden="true">→</span></button>
+          <div class="live-storm-steps" id="live-storm-steps" role="group" aria-label="Move through the Nargis replay" hidden>
+            <button class="button button--small button--quiet" id="live-storm-earlier" type="button">← 6 h earlier</button>
+            <button class="button button--small button--quiet" id="live-storm-later" type="button">6 h later →</button>
+          </div>
+          <button class="text-button" id="live-storm-replay" type="button">Replay Cyclone Nargis, 2008</button>
+        </div>
+        <p class="live-storm-source">Positions come from <a href="https://www.gdacs.org/" rel="noopener noreferrer">GDACS</a>, the UN and EU disaster alert system. “Check now” asks gdacs.org for storm data; nothing about you or your estimates is sent. The distance is a straight line to the south-west delta coast, so treat it as a first guess.</p>
+      </section>
+
       <div class="calculator-workbench">
         <section class="calculator-card" data-smooth aria-label="Landfall estimate inputs">
           <form id="landfall-form" class="form-stack" novalidate>

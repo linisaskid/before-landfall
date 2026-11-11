@@ -1257,6 +1257,12 @@
       });
     });
 
+    // The live storm panel (setUpLiveStorm) hands over its two numbers with this event.
+    form.addEventListener("landfall:fill", (event) => {
+      fillInputs(event.detail.distance, event.detail.speed);
+      update(true);
+    });
+
     clearEstimates.addEventListener("click", () => {
       sound("sweep");
       estimates = [];
@@ -1270,6 +1276,245 @@
     });
 
     renderEstimates();
+  }
+
+  // Live storm panel: finds the two calculator numbers from real storm positions.
+  //
+  // This is the one place on the site that talks to another computer, and only when the
+  // visitor presses "Check now". It asks GDACS (the UN and EU disaster alert system) for
+  // the tropical cyclones it is tracking, keeps any that are in the Bay of Bengal or the
+  // Andaman Sea, and reads their last two reported positions. From those it works out:
+  //
+  //   distance = straight line from the storm centre to one point on the delta coast
+  //   speed    = how much closer the storm got between the two reports, per hour
+  //
+  // "Closer per hour" is used instead of the storm's own speed on purpose: a storm racing
+  // north past the delta is fast but is not arriving, and the calculator would be wrong.
+  //
+  // The Nargis replay runs the same sums on recorded positions, so the panel can be shown
+  // on a day with no storm and with no internet.
+  const GDACS_API = "https://www.gdacs.org/gdacsapi/api/";
+  // The south-west delta coast near the mouths of the Ayeyarwady, where Nargis came ashore.
+  const DELTA_COAST = { lat: 15.9, lon: 94.6 };
+  const BAY_OF_BENGAL = { south: 3, north: 24, west: 78, east: 100 };
+  const HOUR_MS = 60 * 60 * 1000;
+  const STALE_AFTER_HOURS = 36;
+
+  // Cyclone Nargis every six hours (UTC), from NOAA's IBTrACS best-track archive, v04r01.
+  const NARGIS_TRACK = [
+    ["2008-04-30T12:00Z", 14.8, 87.3],
+    ["2008-04-30T18:00Z", 15.2, 87.9],
+    ["2008-05-01T00:00Z", 15.6, 88.5],
+    ["2008-05-01T06:00Z", 16.0, 89.7],
+    ["2008-05-01T12:00Z", 16.0, 90.6],
+    ["2008-05-01T18:00Z", 15.9, 91.6],
+    ["2008-05-02T00:00Z", 15.9, 92.6],
+    ["2008-05-02T06:00Z", 16.0, 93.6],
+  ].map(([time, lat, lon]) => ({ time: Date.parse(time), lat, lon }));
+  const NARGIS_LANDFALL = Date.parse("2008-05-02T12:00Z");
+  const NARGIS_REPLAY_START = 4; // 12:00 UTC on 1 May, a day before landfall
+
+  // Great-circle distance between two { lat, lon } points, in km (the haversine formula).
+  function distanceKm(from, to) {
+    const radians = (degrees) => (degrees * Math.PI) / 180;
+    const dLat = radians(to.lat - from.lat);
+    const dLon = radians(to.lon - from.lon);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(radians(from.lat)) * Math.cos(radians(to.lat)) * Math.sin(dLon / 2) ** 2;
+    return 2 * 6371 * Math.asin(Math.sqrt(a));
+  }
+
+  // points: reported positions, oldest first. Returns where the storm is and how fast it is closing.
+  // closing is null with only one report, and zero or negative when the storm is not getting nearer.
+  function readStormTrack(points) {
+    const latest = points[points.length - 1];
+    const previous = points[points.length - 2];
+    const distance = distanceKm(latest, DELTA_COAST);
+    let closing = null;
+    if (previous && latest.time > previous.time) {
+      closing = (distanceKm(previous, DELTA_COAST) - distance) / ((latest.time - previous.time) / HOUR_MS);
+    }
+    return { time: latest.time, distance, closing };
+  }
+
+  // GDACS writes report times as "03 Nov 2026 06:00", in UTC.
+  function parseGdacsTime(text) {
+    const match = /^(\d{1,2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2})/.exec(String(text || "").trim());
+    if (!match) return NaN;
+    const month = MONTH_NAMES.findIndex((name) => name.slice(0, 3).toLowerCase() === match[2].toLowerCase());
+    if (month < 0) return NaN;
+    return Date.UTC(Number(match[3]), month, Number(match[1]), Number(match[4]), Number(match[5]));
+  }
+
+  // Every request goes through here. It refuses any address that is not the GDACS API (some
+  // addresses come from inside GDACS's own answers), sends no cookies, and gives up after 15 s.
+  async function getGdacs(url) {
+    if (!String(url).startsWith(GDACS_API)) throw new Error("Not a GDACS address");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(url, { signal: controller.signal, credentials: "omit", referrerPolicy: "no-referrer" });
+      if (!response.ok) throw new Error("GDACS answered " + response.status);
+      return await response.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // Returns the active storm nearest the delta as { name, time, distance, closing }, or null if there is none.
+  async function findLiveStorm() {
+    const list = await getGdacs(GDACS_API + "events/geteventlist/SEARCH?eventlist=TC");
+    const inBay = (Array.isArray(list && list.features) ? list.features : []).filter((feature) => {
+      const properties = feature.properties || {};
+      const [lon, lat] = (feature.geometry && feature.geometry.coordinates) || [];
+      return String(properties.iscurrent) === "true" &&
+             lat >= BAY_OF_BENGAL.south && lat <= BAY_OF_BENGAL.north &&
+             lon >= BAY_OF_BENGAL.west && lon <= BAY_OF_BENGAL.east;
+    }).slice(0, 3);
+
+    const storms = [];
+    for (const feature of inBay) {
+      const properties = feature.properties;
+      const detail = await getGdacs(GDACS_API + "events/geteventdata?eventtype=TC&eventid=" + encodeURIComponent(properties.eventid));
+      const impacts = (detail.properties && detail.properties.impacts) || [];
+      const timelineUrl = impacts[0] && impacts[0].resource && impacts[0].resource.timeline;
+      if (!timelineUrl) continue;
+      const timeline = await getGdacs(timelineUrl);
+      const items = (timeline.channel && timeline.channel.item) || [];
+      // "actual" reports are where the storm was seen; the others are the forecast.
+      const points = items
+        .filter((item) => String(item.actual).toLowerCase() === "true")
+        .map((item) => ({ time: parseGdacsTime(item.advisory_datetime), lat: Number(item.latitude), lon: Number(item.longitude) }))
+        .filter((point) => Number.isFinite(point.time) && Number.isFinite(point.lat) && Number.isFinite(point.lon))
+        .sort((a, b) => a.time - b.time);
+      if (!points.length) continue;
+      const reading = readStormTrack(points);
+      if (Date.now() - reading.time > STALE_AFTER_HOURS * HOUR_MS) continue;
+      const name = String(properties.eventname || properties.name || "A storm").replace(/-\d+$/, "");
+      storms.push(Object.assign({ name: name.charAt(0) + name.slice(1).toLowerCase() }, reading));
+    }
+    storms.sort((a, b) => a.distance - b.distance);
+    return storms[0] || null;
+  }
+
+  function setUpLiveStorm() {
+    const panel = document.getElementById("live-storm");
+    const form = document.getElementById("landfall-form");
+    const kicker = document.getElementById("live-storm-kicker");
+    const status = document.getElementById("live-storm-status");
+    const detail = document.getElementById("live-storm-detail");
+    const checkButton = document.getElementById("live-storm-check");
+    const useButton = document.getElementById("live-storm-use");
+    const replayButton = document.getElementById("live-storm-replay");
+    const steps = document.getElementById("live-storm-steps");
+    const earlier = document.getElementById("live-storm-earlier");
+    const later = document.getElementById("live-storm-later");
+    if (!panel || !form || !kicker || !status || !detail || !checkButton || !useButton || !replayButton || !steps || !earlier || !later) return;
+
+    const MAX_DISTANCE = Number(document.getElementById("storm-distance").max) || 5000;
+    const MAX_SPEED = Number(document.getElementById("storm-speed").max) || 100;
+    const utcFormat = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" });
+    const clockFormat = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
+    const utc = (time) => utcFormat.format(new Date(time)) + " UTC";
+    let numbers = null;     // the { distance, speed } the "Use these numbers" button will hand over
+    let replayIndex = -1;   // which Nargis report is showing; -1 when not replaying
+    let checking = false;
+
+    function show(state, kickerText, statusText, detailText) {
+      panel.dataset.storm = state;
+      kicker.textContent = kickerText;
+      status.textContent = statusText;
+      detail.textContent = detailText || "";
+      detail.hidden = !detailText;
+      useButton.hidden = !numbers;
+    }
+
+    // Turns a storm reading into the sentence on screen, and into calculator numbers when there are any.
+    function describe(storm, replaying) {
+      // Positions are given to 0.1 of a degree (about 11 km), so finer numbers would be false precision.
+      const distance = Math.min(Math.max(Math.round(storm.distance / 10) * 10, 10), MAX_DISTANCE);
+      const speed = storm.closing === null ? null : Math.round(storm.closing);
+      const where = storm.name + " was about " + distance.toLocaleString() + " km from the delta coast at " + utc(storm.time);
+      const kickerText = replaying ? "Replay, not a live storm" : "Live storm";
+      numbers = null;
+
+      if (speed === null) {
+        show("watch", kickerText, where + ".", "This is its first report, so there is no speed yet. Check again after the next report, or take the forward speed from an official forecast.");
+      } else if (speed < 1) {
+        show("watch", kickerText, where + ", and it is not moving toward the delta at the moment.", "There is no landfall time to estimate. Storms change direction, so keep following official forecasts.");
+      } else {
+        numbers = { distance, speed: Math.min(speed, MAX_SPEED) };
+        const hours = Math.round(numbers.distance / numbers.speed);
+        let ending = "That is about " + hours.toLocaleString() + " hours away if nothing changes.";
+        if (replaying) {
+          const actual = Math.round((NARGIS_LANDFALL - storm.time) / HOUR_MS);
+          ending += " Nargis really came ashore about " + actual + " hours later" +
+                    (Math.abs(actual - hours) <= 1 ? ", so this estimate was close." : ": storms speed up and slow down.");
+        }
+        show("storm", kickerText, where + ", getting closer by about " + numbers.speed + " km every hour.", ending);
+      }
+    }
+
+    function showReplay() {
+      describe(Object.assign({ name: "Cyclone Nargis" }, readStormTrack(NARGIS_TRACK.slice(0, replayIndex + 1))), true);
+      earlier.disabled = replayIndex <= 1;
+      later.disabled = replayIndex >= NARGIS_TRACK.length - 1;
+    }
+
+    function setReplaying(on) {
+      replayIndex = on ? NARGIS_REPLAY_START : -1;
+      steps.hidden = !on;
+      replayButton.textContent = on ? "Leave the replay" : "Replay Cyclone Nargis, 2008";
+    }
+
+    checkButton.addEventListener("click", async () => {
+      if (checking) return;
+      checking = true;
+      checkButton.disabled = true;
+      setReplaying(false);
+      numbers = null;
+      show("checking", "Live check", "Asking GDACS for the latest storm positions…");
+      try {
+        const storm = await findLiveStorm();
+        if (replayIndex >= 0) return; // the visitor started the replay while waiting
+        if (storm) {
+          describe(Object.assign({}, storm, { name: "Cyclone " + storm.name }), false);
+        } else {
+          show("clear", "Live check", "GDACS is not tracking any cyclone in the Bay of Bengal or Andaman Sea right now.", "Checked at " + clockFormat.format(new Date()) + ". A storm can form within a few days, so check again and listen for official announcements in the cyclone seasons.");
+        }
+      } catch (error) {
+        if (replayIndex < 0) show("problem", "Live check", "The storm data could not be reached.", "You may be offline, or GDACS may be busy. Try again in a moment, or type the numbers from an official forecast below.");
+      } finally {
+        checking = false;
+        checkButton.disabled = false;
+        checkButton.textContent = "Check again";
+      }
+    });
+
+    replayButton.addEventListener("click", () => {
+      if (replayIndex >= 0) {
+        setReplaying(false);
+        numbers = null;
+        show("idle", "Live check", "Look up the latest storm positions and this page works out the two numbers for you.");
+        return;
+      }
+      setReplaying(true);
+      showReplay();
+    });
+
+    earlier.addEventListener("click", () => {
+      if (replayIndex > 1) replayIndex -= 1;
+      showReplay();
+    });
+    later.addEventListener("click", () => {
+      if (replayIndex < NARGIS_TRACK.length - 1) replayIndex += 1;
+      showReplay();
+    });
+
+    useButton.addEventListener("click", () => {
+      if (numbers) form.dispatchEvent(new CustomEvent("landfall:fill", { detail: numbers }));
+    });
+
+    panel.hidden = false;
   }
 
   // ==========================================================================
@@ -1899,6 +2144,7 @@
   setUpStormTimeline();
   // Calculator
   setUpLandfallCalculator();
+  setUpLiveStorm();
   // Prepare
   setUpChecklist();
   setUpWaterPlanner();

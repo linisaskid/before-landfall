@@ -2417,6 +2417,35 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .empty-state { color: var(--ink-soft); font-family: var(--sans); }
 
 /* Calculator */
+/* Live storm panel, above the calculator. The left edge takes a stage colour only when
+   there is a storm to act on, so colour keeps meaning "how urgent". */
+.live-storm {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  padding: var(--inset);
+  border-left: 4px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-family: var(--sans);
+}
+.live-storm[data-storm="storm"] { border-left-color: var(--c-prepare); }
+.live-storm[data-storm="watch"] { border-left-color: var(--c-alert); }
+.live-storm[data-storm="problem"] { border-left-color: var(--c-evacuate); }
+.live-storm h3 { margin-top: var(--space-half); font: var(--weight-bold) var(--text-md) var(--display); }
+.live-storm-status { margin-top: var(--space-1); font-size: var(--text-md); line-height: 1.4; }
+.live-storm-detail { margin-top: var(--space-half); color: var(--ink-soft); font-size: var(--text-sm); line-height: 1.45; }
+.live-storm-actions, .live-storm-steps { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+.live-storm-actions .button { border: 0; font-family: var(--sans); cursor: pointer; }
+.live-storm-actions .button:disabled { opacity: .55; cursor: default; }
+.live-storm-actions .button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.live-storm-source { padding-top: var(--space-2); border-top: 1px solid var(--rule); color: var(--ink-soft); font-size: var(--text-sm); line-height: 1.45; }
+@media (min-width: 56rem) {
+  .live-storm { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--inset); }
+  .live-storm-actions { justify-content: flex-end; max-width: 22rem; }
+  .live-storm-source { grid-column: 1 / -1; }
+}
+
 .calculator-workbench { display: grid; gap: var(--space-2); }
 @media (min-width: 58rem) {
   .calculator-workbench { grid-template-columns: minmax(0, 1.1fr) minmax(18rem, .9fr); align-items: stretch; gap: var(--space-2); }

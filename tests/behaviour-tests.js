@@ -655,6 +655,47 @@
     noErrors(page);
   });
 
+  test("calculator: the Nargis replay works out the two numbers and hands them to the calculator, with no network", async () => {
+    const page = await openPage("calculator.html");
+    const calc = calculator(page);
+    const panel = page.$("#live-storm");
+    const status = () => text(page.$("#live-storm-status"));
+    assert.ok(!panel.hidden, "the live storm panel shows once the script has run");
+    assert.ok(page.$("#live-storm-use").hidden && page.$("#live-storm-steps").hidden, "no numbers or replay steps before anything is pressed");
+
+    page.$("#live-storm-replay").click();
+    assert.equal(panel.dataset.storm, "storm");
+    assert.equal(text(page.$("#live-storm-kicker")), "Replay, not a live storm");
+    // 12:00 UTC on 1 May 2008: 16.0 N 90.6 E, six hours after 16.0 N 89.7 E.
+    assert.ok(status().includes("about 430 km") && status().includes("about 16 km every hour"), "replay start says: " + status());
+
+    page.$("#live-storm-use").click();
+    assert.equal(calc.distance.value, "430");
+    assert.equal(calc.speed.value, "16");
+    assert.equal(calc.stage(), "alert");
+    assert.ok(calc.history()[0].startsWith("430 km ÷ 16 km/h"), "the replay estimate is saved like any other");
+
+    // The storm only gets closer through the replay, and the ends of the track stop the buttons.
+    const later = page.$("#live-storm-later");
+    const earlier = page.$("#live-storm-earlier");
+    const km = () => Number(/about ([\d,.\s]+) km from/.exec(status())[1].replace(/\D/g, ""));
+    let previous = km();
+    while (!later.disabled) {
+      later.click();
+      assert.ok(km() < previous, "6 h later is closer: " + status());
+      previous = km();
+    }
+    page.$("#live-storm-use").click();
+    assert.equal(calc.stage(), "prepare");
+    while (!earlier.disabled) earlier.click();
+    assert.ok(km() > 430, "the earliest step is further out: " + status());
+
+    page.$("#live-storm-replay").click();
+    assert.equal(panel.dataset.storm, "idle");
+    assert.ok(page.$("#live-storm-use").hidden && page.$("#live-storm-steps").hidden, "leaving the replay puts the panel back");
+    noErrors(page);
+  });
+
   test("calculator: wrong or missing numbers give a clear message and point at the right box", async () => {
     const page = await openPage("calculator.html");
     const calc = calculator(page);
