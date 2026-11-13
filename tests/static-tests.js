@@ -365,6 +365,9 @@
           if (commonsFile(url) !== file) problems.push(page + ": srcset mixes files: " + url);
           const width = /[?&]width=(\d+)/.exec(url);
           if (width && descriptor !== width[1] + "w") problems.push(page + ": " + file + " candidate width=" + width[1] + " is described as " + descriptor);
+          // Full-size originals run to 3.5 MB; a 1920 px copy is about a third of that and still
+          // fills a large phone's screen, so no candidate is offered above 1920w.
+          if (parseInt(descriptor, 10) > 1920) problems.push(page + ": " + file + " offers a " + descriptor + " candidate; 1920w is the largest");
         });
       });
     }
