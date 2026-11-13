@@ -70,6 +70,9 @@
   --ink: #10303f;
   --ink-soft: #3f5f6c;
   --rule: #c5d6d5;
+  /* The edge of a text box or menu. --rule is too faint to find a field by (1.3:1),
+     so fields get their own colour: at least 3:1 on both --paper and --surface. */
+  --control-border: #67838c;
   --divider: color-mix(in srgb, var(--ink) 8%, transparent);
   /* Colour is kept for the three warning stages below, so it always means
      "how urgent". Everything else (buttons, links, chosen options, focus) uses
@@ -157,6 +160,7 @@
     --ink: #e6f0ef;
     --ink-soft: #a7bec2;
     --rule: #274552;
+    --control-border: #67828a;
     --accent: #e6f0ef;
     --on-accent: #0c1e27;
     --focus: #e6f0ef;
@@ -184,6 +188,7 @@
   --ink: #e6f0ef;
   --ink-soft: #a7bec2;
   --rule: #274552;
+  --control-border: #67828a;
   --accent: #e6f0ef;
   --on-accent: #0c1e27;
   --focus: #e6f0ef;
@@ -1305,7 +1310,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
 
 /* The still example in the HTML: 540 km ÷ 30 km/h = 18 hours. script.js moves it. */
 .demo-gauge .result-gauge-marker {
-  --gauge-position: 43.75%;
+  --gauge-position: 56.25%;
 }
 
 /* Rolling words and numbers stay on one line while they change. */
@@ -2383,7 +2388,7 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   min-width: 0;
   min-height: 3rem;
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius);
   background: var(--paper);
   color: var(--ink);
@@ -2463,7 +2468,7 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .form-stack { display: grid; gap: var(--space-2); }
 .calculator-inputs { display: grid; gap: var(--space-2); }
 @media (min-width: 42rem) { .calculator-inputs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.input-with-unit { display: flex; align-items: center; overflow: hidden; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper); }
+.input-with-unit { display: flex; align-items: center; overflow: hidden; border: 1px solid var(--control-border); border-radius: var(--radius); background: var(--paper); }
 .input-with-unit input {
   width: 100%;
   min-width: 0;
@@ -2517,9 +2522,12 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .estimate-prompt > p:last-of-type { max-width: 34ch; margin-top: var(--space-1); color: var(--ink-soft); line-height: 1.45; }
 .stage-ribbon { display: grid; grid-template-columns: 1fr 1.2fr 1fr; overflow: hidden; margin-top: var(--inset); border-radius: var(--radius-pill); font: var(--weight-bold) var(--text-sm)/1.35 var(--sans); text-align: center; }
 .stage-ribbon span { padding: var(--space-1) var(--space-half); }
-.stage-ribbon--alert { background: var(--c-alert); color: #06222b; }
-.stage-ribbon--prepare { background: var(--c-prepare); color: #2b2005; }
-.stage-ribbon--evacuate { background: var(--c-evacuate); color: var(--on-evacuate); }
+/* The bands always run Under 6 h | 6–24 h | Over 24 h, like the home page slider and
+   gaugePosition() in script.js. The order is set here too, so a ribbon written in another
+   order (the home page demo) still lines up with its marker. */
+.stage-ribbon--evacuate { order: 1; background: var(--c-evacuate); color: var(--on-evacuate); }
+.stage-ribbon--prepare { order: 2; background: var(--c-prepare); color: #2b2005; }
+.stage-ribbon--alert { order: 3; background: var(--c-alert); color: #06222b; }
 .result-card { --text-xl: clamp(3.5rem, 9vw, 5.5rem); background: var(--tint-prepare); }
 .result-card[data-stage="alert"] { background: var(--tint-alert); }
 .result-card[data-stage="prepare"] { background: var(--tint-prepare); }
@@ -2711,7 +2719,7 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .plan-table td { padding: var(--space-1) var(--space-half); }
 .plan-table th:first-child, .plan-table td:first-child { padding-left: 0; }
 .plan-table td:last-child { width: 2.5rem; padding-right: 0; text-align: right; }
-.plan-table input { width: 100%; min-width: 6.5rem; min-height: 2.75rem; padding: var(--space-1) var(--space-2); border: 1px solid transparent; border-radius: var(--radius); background: color-mix(in srgb, var(--paper) 72%, transparent); color: var(--ink); font: var(--text-sm) var(--sans); }
+.plan-table input { width: 100%; min-width: 6.5rem; min-height: 2.75rem; padding: var(--space-1) var(--space-2); border: 1px solid var(--control-border); border-radius: var(--radius); background: color-mix(in srgb, var(--paper) 72%, transparent); color: var(--ink); font: var(--text-sm) var(--sans); }
 .plan-table input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .plan-table input[type="date"] { min-width: 8.5rem; padding-inline: var(--space-2) var(--space-1); }
 /* Give the task name the most room, so default tasks are not cut off */
@@ -3244,6 +3252,9 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .demo-note h2 { margin-bottom: var(--space-1); color: var(--ink); font: var(--weight-bold) var(--text-md)/1.3 var(--display); }
 .demo-note p + p, .demo-note .role-list { margin-top: var(--space-1); }
 .demo-note strong { color: var(--ink); }
+/* The 404 page lists the sections in a note card. On the narrowest phones two columns
+   leave no room for "Community" and its arrow, so the rows stack. */
+@media (max-width: 22rem) { .demo-note .footer-links { grid-template-columns: minmax(0, 1fr); } }
 .role-list { display: grid; gap: var(--space-half); padding-left: 1.1rem; list-style: disc; }
 .demo-login { padding-top: var(--space-1); border-top: 1px solid var(--rule); }
 .form-field small code {
@@ -3255,7 +3266,9 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 }
 .field-error { color: var(--c-evacuate-text); font: var(--weight-medium) var(--text-sm)/1.4 var(--sans); }
 .field-error::before { content: "! "; font-weight: var(--weight-bold); }
-.form-field [aria-invalid="true"] { border-color: var(--c-evacuate); }
+/* Twice as thick as the resting edge (the inset shadow adds a second pixel), so an
+   error does not rely on red alone to stand out from the grey-green border. */
+.form-field [aria-invalid="true"] { border-color: var(--c-evacuate); box-shadow: inset 0 0 0 1px var(--c-evacuate); }
 .form-field textarea { min-height: 0; resize: vertical; line-height: 1.5; }
 .form-note, .optional { color: var(--ink-soft); font: var(--weight-regular) var(--text-sm)/1.45 var(--sans); }
 .role-badge {
@@ -3289,6 +3302,20 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 }
 
 /* --- Account page ------------------------------------------------------------ */
+/* The page reads heading, forms, then "How accounts work". On a narrow screen that
+   is also the order you see; the note follows the forms like one more card. */
+@media (max-width: 55.99rem) {
+  .account-layout > .account-section { padding-bottom: var(--space-3); }
+  .account-layout > .demo-note { margin-bottom: clamp(3rem, 6vw, 4.5rem); }
+}
+/* From 56rem the note goes back beside the heading, in the second column the hero
+   used to have. Its margins match the hero's padding, so the row is the same height. */
+@media (min-width: 56rem) {
+  .account-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .96fr); column-gap: clamp(2rem, 5vw, 4.5rem); }
+  .account-layout > .account-hero { grid-column: 1; grid-row: 1; grid-template-columns: minmax(0, 1fr); align-self: center; }
+  .account-layout > .demo-note { grid-column: 2; grid-row: 1; align-self: center; margin-block: clamp(3rem, 7vw, 5.5rem); }
+  .account-layout > .account-section { grid-column: 1 / -1; grid-row: 2; }
+}
 .account-section { display: grid; gap: var(--space-3); }
 .account-grid { display: grid; gap: var(--space-3); align-items: start; }
 @media (min-width: 56rem) { .account-grid { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); } }
@@ -3353,9 +3380,9 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
   .avatar-dialog { padding: var(--space-2); }
   .avatar-dialog-actions .button { padding: var(--space-1) var(--space-2); }
 }
-.password-field { display: flex; align-items: stretch; overflow: hidden; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper); }
-.password-field:has([aria-invalid="true"]) { border-color: var(--c-evacuate); }
-.form-field .password-field input { border: 0; border-radius: 0; background: transparent; }
+.password-field { display: flex; align-items: stretch; overflow: hidden; border: 1px solid var(--control-border); border-radius: var(--radius); background: var(--paper); }
+.password-field:has([aria-invalid="true"]) { border-color: var(--c-evacuate); box-shadow: inset 0 0 0 1px var(--c-evacuate); }
+.form-field .password-field input { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 /* The box clips its corners, so an outline on the input itself would be cut off at the
    rounded left end. The ring goes around the whole box instead, like the other fields;
    the Show button gets an inset ring that follows its rounded right end. */

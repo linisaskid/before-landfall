@@ -88,136 +88,142 @@
   </header>
 
   <main id="main" class="page-main page-main--account">
-    <header class="support-hero container account-hero">
-      <div class="support-hero-copy" data-reveal>
-        <p class="eyebrow">Community account</p>
-        <h1>Log in or join</h1>
-        <p class="lead">With an account you can post on the knowledge board, reply to other members and suggest meet-ups for the calendar.</p>
-      </div>
+    <!-- The forms come straight after the heading, so on a phone (and for keyboards and
+         screen readers) nobody has to get through the explanation to log in. On wide
+         screens the grid still shows the explanation beside the heading. -->
+    <div class="container account-layout">
+      <header class="support-hero account-hero">
+        <div class="support-hero-copy" data-reveal>
+          <p class="eyebrow">Community account</p>
+          <h1>Log in or join</h1>
+          <p class="lead">With an account you can post on the knowledge board, reply to other members and suggest meet-ups for the calendar.</p>
+        </div>
+      </header>
+
+      <section class="block account-section" aria-label="Log in or register">
+        <p class="form-error" id="account-storage-note" role="alert" hidden>Your browser is blocking storage for this site, so you cannot log in or register. Allow site data in your browser settings and reload the page.</p>
+
+        <div class="account-card signed-in-card" id="signed-in-card" data-smooth hidden>
+          <div class="signed-in-head">
+            <span class="signed-in-avatar" id="signed-in-avatar" aria-hidden="true"></span>
+            <div>
+              <h2>You’re logged in</h2>
+              <p>Signed in as <strong id="signed-in-name">Member</strong> (<span id="signed-in-username">@member</span>), <span id="signed-in-role">a member</span>.</p>
+            </div>
+          </div>
+          <div class="form-actions">
+            <a class="button" href="community.html">Go to the community</a>
+            <button class="button button--quiet" type="button" id="change-avatar-button" aria-haspopup="dialog">Change avatar</button>
+            <button class="button button--quiet" type="button" id="log-out-button">Log out</button>
+          </div>
+          <p class="status-message" id="avatar-status" role="status"></p>
+        </div>
+
+        <dialog class="avatar-dialog" id="avatar-dialog" aria-labelledby="avatar-dialog-title" aria-describedby="avatar-dialog-help">
+          <form id="avatar-form" method="dialog">
+            <h2 id="avatar-dialog-title">Choose an avatar</h2>
+            <p id="avatar-dialog-help">Drag the pictures around, or use the arrow keys. The one in the middle shows next to your name in the community.</p>
+            <fieldset class="avatar-field" id="avatar-field">
+              <legend class="visually-hidden">Avatars</legend>
+              <div class="avatar-stage" id="avatar-stage"></div>
+            </fieldset>
+            <div class="avatar-dialog-actions">
+              <button class="button button--quiet" type="button" id="avatar-shuffle">Shuffle</button>
+              <button class="button button--quiet" type="button" id="avatar-cancel">Cancel</button>
+              <button class="button" type="submit" id="avatar-save">Save</button>
+            </div>
+          </form>
+        </dialog>
+
+        <div class="account-grid" id="account-forms">
+          <section class="account-card" id="log-in" aria-labelledby="login-title" data-smooth>
+            <h2 id="login-title">Log in</h2>
+            <p class="account-intro">Welcome back. Use your username or the email you registered with.</p>
+            <form id="login-form" class="form-stack" novalidate>
+              <div class="form-field">
+                <label for="login-id">Username or email</label>
+                <input id="login-id" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required aria-describedby="login-id-error">
+                <p class="field-error" id="login-id-error" hidden></p>
+              </div>
+              <div class="form-field">
+                <label for="login-password">Password</label>
+                <div class="password-field">
+                  <input id="login-password" name="password" type="password" autocomplete="current-password" required aria-describedby="login-password-error">
+                  <button class="password-toggle" type="button" data-password-toggle aria-controls="login-password" hidden><span class="toggle-word">Show</span><span class="visually-hidden"> password</span></button>
+                </div>
+                <p class="field-error" id="login-password-error" hidden></p>
+              </div>
+              <label class="check-row">
+                <input id="login-remember" type="checkbox" checked>
+                <span><strong>Keep me logged in</strong><small>Untick this on a shared computer: you will be logged out when the tab closes.</small></span>
+              </label>
+              <p class="form-error" id="login-error" role="alert" hidden></p>
+              <button class="button form-submit" type="submit">Log in <span aria-hidden="true">→</span></button>
+            </form>
+          </section>
+
+          <section class="account-card" id="register" aria-labelledby="register-title" data-smooth>
+            <h2 id="register-title">Register</h2>
+            <p class="account-intro">New here? It takes under a minute. Every box is needed.</p>
+            <form id="register-form" class="form-stack" novalidate>
+              <div class="form-field">
+                <label for="register-name">Display name</label>
+                <input id="register-name" name="name" type="text" maxlength="40" autocomplete="nickname" required aria-describedby="register-name-help register-name-error">
+                <small id="register-name-help">Shown next to your posts. A first name or nickname is enough.</small>
+                <p class="field-error" id="register-name-error" hidden></p>
+              </div>
+              <div class="form-field">
+                <label for="register-username">Username</label>
+                <input id="register-username" name="username" type="text" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" required aria-describedby="register-username-help register-username-error">
+                <small id="register-username-help">3 to 20 letters, numbers or underscores, for example <code>storm_fan</code>.</small>
+                <p class="field-error" id="register-username-error" hidden></p>
+              </div>
+              <div class="form-field">
+                <label for="register-email">Email</label>
+                <input id="register-email" name="email" type="email" maxlength="80" autocomplete="email" autocapitalize="none" spellcheck="false" required aria-describedby="register-email-error">
+                <p class="field-error" id="register-email-error" hidden></p>
+              </div>
+              <div class="form-field">
+                <label for="register-password">Password</label>
+                <div class="password-field">
+                  <input id="register-password" name="new-password" type="password" autocomplete="new-password" required aria-describedby="register-password-help password-strength register-password-error">
+                  <button class="password-toggle" type="button" data-password-toggle aria-controls="register-password" hidden><span class="toggle-word">Show</span><span class="visually-hidden"> password</span></button>
+                </div>
+                <small id="register-password-help">At least 8 characters, with a letter and a number.</small>
+                <p class="password-strength" id="password-strength" hidden><span class="strength-bar" aria-hidden="true"><span></span></span><span>Strength: <span class="strength-word"></span></span></p>
+                <p class="field-error" id="register-password-error" hidden></p>
+              </div>
+              <div class="form-field">
+                <label for="register-confirm">Confirm password</label>
+                <div class="password-field">
+                  <input id="register-confirm" name="confirm-password" type="password" autocomplete="new-password" required aria-describedby="register-confirm-error">
+                  <button class="password-toggle" type="button" data-password-toggle aria-controls="register-confirm" hidden><span class="toggle-word">Show</span><span class="visually-hidden"> password</span></button>
+                </div>
+                <p class="field-error" id="register-confirm-error" hidden></p>
+              </div>
+              <label class="check-row">
+                <input id="register-remember" type="checkbox" checked>
+                <span><strong>Keep me logged in</strong><small>Untick this on a shared computer: you will be logged out when the tab closes.</small></span>
+              </label>
+              <label class="check-row">
+                <input id="register-agree" type="checkbox" required aria-describedby="register-agree-error">
+                <span><strong>I agree to the community rules</strong><small>Be kind, say where facts come from, and follow official warnings in a real storm. <a href="community.html#community-rules">Read the rules</a></small></span>
+              </label>
+              <p class="field-error" id="register-agree-error" hidden></p>
+              <p class="form-error" id="register-error" role="alert" hidden></p>
+              <button class="button form-submit" type="submit">Create account <span aria-hidden="true">→</span></button>
+            </form>
+          </section>
+        </div>
+      </section>
+
       <aside class="demo-note" aria-labelledby="demo-note-title" data-smooth data-reveal data-reveal-delay="1">
         <h2 id="demo-note-title">How accounts work on this site</h2>
         <p>This is a classroom project made only with HTML, CSS and JavaScript, so there is no server. Your account, posts and meet-ups are saved in <strong>this browser only</strong>, and other people cannot see them.</p>
         <p>Your password is never saved as text, only as a scrambled hash. Even so, <strong>do not reuse a real password</strong> here.</p>
         <p class="demo-login">The admins are the project group: Lin Thuriya Pho Hlaing, Zayar Win Htay and Pyay Lin Thant. Group members, register with your school email and your account becomes an admin.</p>
       </aside>
-    </header>
-
-    <section class="block container account-section" aria-label="Log in or register">
-      <p class="form-error" id="account-storage-note" role="alert" hidden>Your browser is blocking storage for this site, so you cannot log in or register. Allow site data in your browser settings and reload the page.</p>
-
-      <div class="account-card signed-in-card" id="signed-in-card" data-smooth hidden>
-        <div class="signed-in-head">
-          <span class="signed-in-avatar" id="signed-in-avatar" aria-hidden="true"></span>
-          <div>
-            <h2>You’re logged in</h2>
-            <p>Signed in as <strong id="signed-in-name">Member</strong> (<span id="signed-in-username">@member</span>), <span id="signed-in-role">a member</span>.</p>
-          </div>
-        </div>
-        <div class="form-actions">
-          <a class="button" href="community.html">Go to the community</a>
-          <button class="button button--quiet" type="button" id="change-avatar-button" aria-haspopup="dialog">Change avatar</button>
-          <button class="button button--quiet" type="button" id="log-out-button">Log out</button>
-        </div>
-        <p class="status-message" id="avatar-status" role="status"></p>
-      </div>
-
-      <dialog class="avatar-dialog" id="avatar-dialog" aria-labelledby="avatar-dialog-title" aria-describedby="avatar-dialog-help">
-        <form id="avatar-form" method="dialog">
-          <h2 id="avatar-dialog-title">Choose an avatar</h2>
-          <p id="avatar-dialog-help">Drag the pictures around, or use the arrow keys. The one in the middle shows next to your name in the community.</p>
-          <fieldset class="avatar-field" id="avatar-field">
-            <legend class="visually-hidden">Avatars</legend>
-            <div class="avatar-stage" id="avatar-stage"></div>
-          </fieldset>
-          <div class="avatar-dialog-actions">
-            <button class="button button--quiet" type="button" id="avatar-shuffle">Shuffle</button>
-            <button class="button button--quiet" type="button" id="avatar-cancel">Cancel</button>
-            <button class="button" type="submit" id="avatar-save">Save</button>
-          </div>
-        </form>
-      </dialog>
-
-      <div class="account-grid" id="account-forms">
-        <section class="account-card" id="log-in" aria-labelledby="login-title" data-smooth>
-          <h2 id="login-title">Log in</h2>
-          <p class="account-intro">Welcome back. Use your username or the email you registered with.</p>
-          <form id="login-form" class="form-stack" novalidate>
-            <div class="form-field">
-              <label for="login-id">Username or email</label>
-              <input id="login-id" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required aria-describedby="login-id-error">
-              <p class="field-error" id="login-id-error" hidden></p>
-            </div>
-            <div class="form-field">
-              <label for="login-password">Password</label>
-              <div class="password-field">
-                <input id="login-password" name="password" type="password" autocomplete="current-password" required aria-describedby="login-password-error">
-                <button class="password-toggle" type="button" data-password-toggle aria-controls="login-password" hidden><span class="toggle-word">Show</span><span class="visually-hidden"> password</span></button>
-              </div>
-              <p class="field-error" id="login-password-error" hidden></p>
-            </div>
-            <label class="check-row">
-              <input id="login-remember" type="checkbox" checked>
-              <span><strong>Keep me logged in</strong><small>Untick this on a shared computer: you will be logged out when the tab closes.</small></span>
-            </label>
-            <p class="form-error" id="login-error" role="alert" hidden></p>
-            <button class="button form-submit" type="submit">Log in <span aria-hidden="true">→</span></button>
-          </form>
-        </section>
-
-        <section class="account-card" id="register" aria-labelledby="register-title" data-smooth>
-          <h2 id="register-title">Register</h2>
-          <p class="account-intro">New here? It takes under a minute. Every box is needed.</p>
-          <form id="register-form" class="form-stack" novalidate>
-            <div class="form-field">
-              <label for="register-name">Display name</label>
-              <input id="register-name" name="name" type="text" maxlength="40" autocomplete="nickname" required aria-describedby="register-name-help register-name-error">
-              <small id="register-name-help">Shown next to your posts. A first name or nickname is enough.</small>
-              <p class="field-error" id="register-name-error" hidden></p>
-            </div>
-            <div class="form-field">
-              <label for="register-username">Username</label>
-              <input id="register-username" name="username" type="text" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" required aria-describedby="register-username-help register-username-error">
-              <small id="register-username-help">3 to 20 letters, numbers or underscores, for example <code>storm_fan</code>.</small>
-              <p class="field-error" id="register-username-error" hidden></p>
-            </div>
-            <div class="form-field">
-              <label for="register-email">Email</label>
-              <input id="register-email" name="email" type="email" maxlength="80" autocomplete="email" autocapitalize="none" spellcheck="false" required aria-describedby="register-email-error">
-              <p class="field-error" id="register-email-error" hidden></p>
-            </div>
-            <div class="form-field">
-              <label for="register-password">Password</label>
-              <div class="password-field">
-                <input id="register-password" name="new-password" type="password" autocomplete="new-password" required aria-describedby="register-password-help password-strength register-password-error">
-                <button class="password-toggle" type="button" data-password-toggle aria-controls="register-password" hidden><span class="toggle-word">Show</span><span class="visually-hidden"> password</span></button>
-              </div>
-              <small id="register-password-help">At least 8 characters, with a letter and a number.</small>
-              <p class="password-strength" id="password-strength" hidden><span class="strength-bar" aria-hidden="true"><span></span></span><span>Strength: <span class="strength-word"></span></span></p>
-              <p class="field-error" id="register-password-error" hidden></p>
-            </div>
-            <div class="form-field">
-              <label for="register-confirm">Confirm password</label>
-              <div class="password-field">
-                <input id="register-confirm" name="confirm-password" type="password" autocomplete="new-password" required aria-describedby="register-confirm-error">
-                <button class="password-toggle" type="button" data-password-toggle aria-controls="register-confirm" hidden><span class="toggle-word">Show</span><span class="visually-hidden"> password</span></button>
-              </div>
-              <p class="field-error" id="register-confirm-error" hidden></p>
-            </div>
-            <label class="check-row">
-              <input id="register-remember" type="checkbox" checked>
-              <span><strong>Keep me logged in</strong><small>Untick this on a shared computer: you will be logged out when the tab closes.</small></span>
-            </label>
-            <label class="check-row">
-              <input id="register-agree" type="checkbox" required aria-describedby="register-agree-error">
-              <span><strong>I agree to the community rules</strong><small>Be kind, say where facts come from, and follow official warnings in a real storm. <a href="community.html#community-rules">Read the rules</a></small></span>
-            </label>
-            <p class="field-error" id="register-agree-error" hidden></p>
-            <p class="form-error" id="register-error" role="alert" hidden></p>
-            <button class="button form-submit" type="submit">Create account <span aria-hidden="true">→</span></button>
-          </form>
-        </section>
-      </div>
-    </section>
+    </div>
   </main>
 
   <footer class="site-footer">

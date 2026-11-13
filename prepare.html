@@ -189,7 +189,7 @@
           <span class="water-operator" aria-hidden="true">×</span>
           <div class="form-field"><label for="water-per-person">Litres per person / day</label><input id="water-per-person" type="number" min="0.5" max="20" step="0.5" value="3" inputmode="decimal"></div>
         </div>
-        <div class="water-output" aria-live="polite"><span class="eyebrow">Your total</span><strong><roll-text id="water-total">36 litres</roll-text></strong><span class="water-formula">people × days × your litres-per-person assumption</span></div>
+        <div class="water-output" aria-live="polite"><span class="eyebrow">Your total</span><strong><roll-text id="water-total">36 litres</roll-text></strong><span class="water-formula" id="water-formula">people × days × your litres-per-person assumption</span></div>
       </div>
       <p class="source-line">This is an editable planning example, not a local supply standard or medical recommendation. Adjust it for your household and follow current official guidance. General preparedness advice: National Hurricane Center.<sup class="cite"><a href="sources.html#ref-15" title="National Hurricane Center (n.d.), preparedness" aria-label="Source 15: National Hurricane Center (n.d.), preparedness">15</a></sup></p>
     </section>
@@ -209,7 +209,7 @@
             <div class="form-field"><label for="plan-meeting">Meeting place if separated</label><input id="plan-meeting" name="meeting" type="text" maxlength="120" placeholder="A place everyone knows"></div>
             <div class="form-field"><label for="plan-route-one">Main route</label><input id="plan-route-one" name="routeOne" type="text" maxlength="160" placeholder="Landmarks or directions"></div>
             <div class="form-field"><label for="plan-route-two">Alternative route</label><input id="plan-route-two" name="routeTwo" type="text" maxlength="160" placeholder="A second way to reach safety"></div>
-            <div class="form-field plan-field--wide"><label for="plan-contact">Trusted contact and how to reach them</label><input id="plan-contact" name="contact" type="text" maxlength="120" placeholder="Name and agreed contact method"></div>
+            <div class="form-field plan-field--wide"><label for="plan-contact">Trusted contact and how to reach them</label><input id="plan-contact" name="contact" type="text" maxlength="120" placeholder="e.g. Ko Min, by phone" aria-describedby="plan-contact-help"><small id="plan-contact-help">Their name and the contact method you have agreed with them.</small></div>
           </div>
 
           <div class="task-editor">

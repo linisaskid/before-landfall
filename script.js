@@ -50,16 +50,17 @@
 
   const stageForHours = (hours) => STAGES.find((stage) => stage.test(hours));
 
-  // Where an answer sits on the Over 24 h | 6–24 h | Under 6 h bar (the calculator's
-  // gauge, and its demo on the home page). The bar runs from far away (left) to close
-  // (right), and its three bands are 1 : 1.2 : 1 wide.
+  // Where an answer sits on the Under 6 h | 6–24 h | Over 24 h bar (the calculator's
+  // gauge, and its demo on the home page). Like the home page slider, the bar runs from
+  // close (left) to far away (right), so fewer hours sit further left. Its three bands
+  // are 1 : 1.2 : 1 wide, and 6 h and 24 h fall exactly on the edges between them.
   function gaugePosition(hours) {
-    const alertEnd = 100 / 3.2;
+    const evacuateEnd = 100 / 3.2;
     const prepareEnd = (100 * 2.2) / 3.2;
     let position;
-    if (hours > ALERT_ABOVE) position = alertEnd * (1 - Math.min((hours - ALERT_ABOVE) / 48, 1));
-    else if (hours >= EVACUATE_BELOW) position = alertEnd + ((ALERT_ABOVE - hours) / (ALERT_ABOVE - EVACUATE_BELOW)) * (prepareEnd - alertEnd);
-    else position = prepareEnd + ((EVACUATE_BELOW - hours) / EVACUATE_BELOW) * (100 - prepareEnd);
+    if (hours < EVACUATE_BELOW) position = (Math.max(hours, 0) / EVACUATE_BELOW) * evacuateEnd;
+    else if (hours <= ALERT_ABOVE) position = evacuateEnd + ((hours - EVACUATE_BELOW) / (ALERT_ABOVE - EVACUATE_BELOW)) * (prepareEnd - evacuateEnd);
+    else position = prepareEnd + Math.min((hours - ALERT_ABOVE) / 48, 1) * (100 - prepareEnd);
     return Math.min(Math.max(position, 3), 97);
   }
 
@@ -980,9 +981,19 @@
 
     const STORAGE_KEY = "beforeLandfall.calculatorHistory.v1";
     const MAX_SAVED = 5;
-    // The upper limits come from the inputs' max attributes, so the HTML is the one place to change them.
+    // The limits come from the inputs' min and max attributes, so the HTML is the one place to change
+    // them, and the script never accepts a number the browser would call out of range (or the reverse).
+    const MIN_DISTANCE = Number(distanceInput.min) || 0.1;
     const MAX_DISTANCE = Number(distanceInput.max) || 5000;
+    // Cyclones do stall, so the slowest speed is a crawl of 1 km/h (the live storm check
+    // hands over nothing slower).
+    const MIN_SPEED = Number(speedInput.min) || 1;
     const MAX_SPEED = Number(speedInput.max) || 100;
+    // One message for every wrong or missing number in a box: it names the box and the numbers it takes.
+    const DISTANCE_MESSAGE = "Enter a storm centre to coast distance from " + MIN_DISTANCE.toLocaleString("en-US") +
+                             " to " + MAX_DISTANCE.toLocaleString("en-US") + " km.";
+    const SPEED_MESSAGE = "Enter a forward speed from " + MIN_SPEED.toLocaleString("en-US") +
+                          " to " + MAX_SPEED.toLocaleString("en-US") + " km/h.";
     const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
     const exampleButtons = Array.from(document.querySelectorAll("[data-example-distance][data-example-speed]"));
     const touched = new Set();
@@ -992,8 +1003,8 @@
 
     setRollTransition(resultHours);
 
-    const isValidDistance = (value) => Number.isFinite(value) && value > 0 && value <= MAX_DISTANCE;
-    const isValidSpeed = (value) => Number.isFinite(value) && value > 0 && value <= MAX_SPEED;
+    const isValidDistance = (value) => Number.isFinite(value) && value >= MIN_DISTANCE && value <= MAX_DISTANCE;
+    const isValidSpeed = (value) => Number.isFinite(value) && value >= MIN_SPEED && value <= MAX_SPEED;
     const formatHours = (hours) => hours.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
     let savedText = null;
@@ -1057,15 +1068,14 @@
     }
 
     // Returns null when the numbers are fine, otherwise what is wrong and which box to point at.
+    // An empty box gets the same message as a wrong number in it; incomplete only means the
+    // message can wait while the visitor is still typing.
     function findProblem(values) {
-      if (!values.hasDistance || !values.hasSpeed) {
-        return { message: "Enter both the distance and forward speed.", field: values.hasDistance ? speedInput : distanceInput, incomplete: true };
+      if (!values.hasDistance || !isValidDistance(values.distance)) {
+        return { message: DISTANCE_MESSAGE, field: distanceInput, incomplete: !values.hasDistance };
       }
-      if (!isValidDistance(values.distance)) {
-        return { message: "Enter a distance greater than 0 and no more than " + MAX_DISTANCE.toLocaleString("en-US") + " km.", field: distanceInput };
-      }
-      if (!isValidSpeed(values.speed)) {
-        return { message: "Enter a forward speed greater than 0 and no more than " + MAX_SPEED.toLocaleString("en-US") + " km/h.", field: speedInput };
+      if (!values.hasSpeed || !isValidSpeed(values.speed)) {
+        return { message: SPEED_MESSAGE, field: speedInput, incomplete: !values.hasSpeed };
       }
       return null;
     }
@@ -1591,13 +1601,43 @@
   function setUpWaterPlanner() {
     const inputs = ["household-size", "supply-days", "water-per-person"].map((id) => document.getElementById(id));
     const waterTotal = document.getElementById("water-total");
-    if (!inputs.every(Boolean) || !waterTotal) return;
+    const formula = document.getElementById("water-formula");
+    if (!inputs.every(Boolean) || !waterTotal || !formula) return;
+    const FORMULA_TEXT = formula.textContent;
+
+    // What a box accepts, worded from its own label and limits, e.g.
+    // "Days in your plan: enter a whole number from 1 to 14."
+    function messageFor(input) {
+      const label = input.labels && input.labels[0] ? input.labels[0].textContent.trim() : "This box";
+      const step = Number(input.step) || 1;
+      const accepts = step === 1
+        ? "a whole number from " + input.min + " to " + input.max
+        : "a number from " + input.min + " to " + input.max + ", in steps of " + input.step;
+      return label + ": enter " + accepts + ".";
+    }
+
+    // Like the calculator, only the first wrong box is named, so there is one message to read.
+    function findProblem() {
+      return inputs.find((input) => !input.value.trim() || !input.checkValidity()) || null;
+    }
 
     function updateTotal(animate) {
-      if (inputs.some((input) => !input.value.trim() || !input.checkValidity())) {
+      const problem = findProblem();
+      inputs.forEach((input) => {
+        if (input === problem) {
+          input.setAttribute("aria-invalid", "true");
+          input.setAttribute("aria-describedby", formula.id);
+        } else {
+          input.removeAttribute("aria-invalid");
+          input.removeAttribute("aria-describedby");
+        }
+      });
+      if (problem) {
         setRoll(waterTotal, "Check the values", animate);
+        formula.textContent = messageFor(problem);
         return;
       }
+      formula.textContent = FORMULA_TEXT;
       const total = inputs.reduce((product, input) => product * Number(input.value), 1);
       setRoll(waterTotal, total.toLocaleString(undefined, { maximumFractionDigits: 1 }) + (total === 1 ? " litre" : " litres"), animate);
       if (animate) sound("tick");
@@ -1641,6 +1681,20 @@
     const field = (name) => form.elements.namedItem(name);
     const limitFor = (name) => (field(name) && field(name).maxLength > 0 ? field(name).maxLength : 160);
     const safeText = (value, maxLength) => (typeof value === "string" ? value.slice(0, maxLength) : "");
+
+    // Task dates are stored as "2026-11-13" but printed as "13 November 2026", like the rest of
+    // the site. The date is built from its parts and formatted in UTC, because new Date("2026-11-13")
+    // is UTC midnight and would print as 12 November in time zones behind UTC.
+    const PLAN_DATE_FORMAT = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+    function readableDate(isoDate) {
+      const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate || "");
+      if (!parts) return "";
+      const [year, month, day] = parts.slice(1).map(Number);
+      const date = new Date(Date.UTC(year, month - 1, day));
+      // Date.UTC quietly rolls 31 February over into March, so check the day survived.
+      if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return "";
+      return PLAN_DATE_FORMAT.format(date);
+    }
 
     // Accepts tasks from storage or the editor and returns clean copies. Older saves used
     // "task" and "who" for what is now "title" and "person".
@@ -1744,7 +1798,7 @@
         const title = document.createElement("strong");
         title.textContent = task.title || "Task not named";
         const details = document.createElement("span");
-        const detailsText = [task.when, task.person].filter(Boolean);
+        const detailsText = [readableDate(task.when), task.person].filter(Boolean);
         details.textContent = detailsText.length ? detailsText.join(" · ") : "Date and lead not set";
         item.append(title, details);
         return item;
@@ -1811,7 +1865,7 @@
         "",
         "Preparation tasks:",
         ...plan.tasks.map((task, index) =>
-          (index + 1) + ". " + (task.title || "Task not named") + " | When: " + (task.when || "Not set") + " | Responsible: " + (task.person || "Not set")),
+          (index + 1) + ". " + (task.title || "Task not named") + " | When: " + (readableDate(task.when) || "Not set") + " | Responsible: " + (task.person || "Not set")),
       ];
       return lines.join("\n") + "\n";
     }
@@ -2091,6 +2145,27 @@
     }
   }
 
+  // The short "Author (year)" name that the citation markers on the other pages use, worked
+  // out from the APA reference: "Fritz, H. M., Blount, C. D., … (2009)" gives "Fritz et al. (2009)".
+  // A data-cite-note adds the word or two that tells same-author sources apart ("hazards").
+  function shortCitation(reference, citation) {
+    const match = citation.textContent.trim().match(/^(.+?)\.? \(([^)]+)\)/);
+    if (!match) return "";
+    const year = match[2].split(",")[0]; // "2011, October" → "2011"
+    const parts = match[1].split(/,\s*(?:&\s*)?/);
+    let author = parts[0];
+    if (parts.length > 1 && /^(?:[A-Z]\.\s?)*[A-Z]\.?$/.test(parts[1])) {
+      // People: "Surname, Initials" pairs. One is named, two are joined, three or more are "et al."
+      const surnames = parts.filter((part, i) => i % 2 === 0);
+      if (surnames.length === 2) author = surnames.join(" & ");
+      if (surnames.length > 2) author += " et al.";
+    } else if (match[1].includes("&")) {
+      author += " et al."; // a list of organisations
+    }
+    const note = reference.dataset.citeNote;
+    return author + " (" + year + ")" + (note ? ", " + note : "");
+  }
+
   function setUpCopyButtons() {
     const copyStatus = document.getElementById("copy-status");
 
@@ -2101,10 +2176,17 @@
 
       const label = button.textContent;
       let resetTimer = 0;
-      // Several sources share an author (three from the National Hurricane Center), so the
-      // reference number keeps each button's name distinct for screen reader users.
+      // Every button would otherwise just be "Copy citation", so its name also says which
+      // source it copies, the same way the citation markers do. The name starts with the
+      // visible words so voice control users can say what they see.
       const number = Number(reference.dataset.num);
-      button.setAttribute("aria-label", label + " " + number + ": " + citation.textContent.trim().split(".")[0]);
+      const short = shortCitation(reference, citation);
+      const source = " for source " + number + (short ? ": " + short : "");
+      const showLabel = (words) => {
+        button.textContent = words;
+        button.setAttribute("aria-label", words + source);
+      };
+      showLabel(label);
 
       button.addEventListener("click", async () => {
         const copied = await copyText(citation.textContent.trim());
@@ -2112,9 +2194,9 @@
         if (copyStatus) copyStatus.textContent = copied ? "Citation copied." : "Copy is unavailable in this browser. Select the citation text to copy it.";
         sound(copied ? "success" : "nudge");
         if (!copied) return;
-        button.textContent = "Copied";
+        showLabel("Copied");
         clearTimeout(resetTimer);
-        resetTimer = window.setTimeout(() => { button.textContent = label; }, 1800);
+        resetTimer = window.setTimeout(() => showLabel(label), 1800);
       });
     });
   }
