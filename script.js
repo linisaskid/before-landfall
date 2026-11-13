@@ -1093,12 +1093,14 @@
     }
 
     // Shows the answer and returns { hours, arrival } for saving, or null if it cannot be shown.
-    function showResult(distance, speed) {
+    // replayFrom is only given by the Nargis replay: the moment in 2008 the numbers belong to,
+    // so the arrival time is counted from then and not from today.
+    function showResult(distance, speed, replayFrom) {
       const exactHours = distance / speed;
       // Round once and use the rounded figure everywhere, so the number on screen and its stage
       // always agree (5.999 h shows as "6 hours", so it must not be labelled "under 6 h").
       const hours = Math.max(Math.round(exactHours * 100) / 100, 0.01);
-      const arrival = new Date(Date.now() + exactHours * 60 * 60 * 1000);
+      const arrival = new Date((replayFrom || Date.now()) + exactHours * 60 * 60 * 1000);
       if (!Number.isFinite(arrival.getTime())) return null;
 
       const stage = stageForHours(hours);
@@ -1107,7 +1109,9 @@
 
       result.dataset.stage = stage.id;
       if (resultMarker) resultMarker.style.setProperty("--gauge-position", gaugePosition(hours) + "%");
-      resultArrival.textContent = "If the speed stays the same: " + timeFormat.format(arrival) + " (your device’s local time).";
+      resultArrival.textContent = replayFrom
+        ? "In the replay, if the speed had stayed the same: " + formatUtc(arrival) + "."
+        : "If the speed stays the same: " + timeFormat.format(arrival) + " (your device’s local time).";
       resultStage.textContent = stage.name;
       resultAdvice.textContent = stage.advice;
 
@@ -1178,7 +1182,7 @@
 
     // explicit = the person pressed the button, picked an example or reused an estimate.
     // Returns true when a valid answer is showing.
-    function update(explicit) {
+    function update(explicit, replayFrom) {
       const values = readInputs();
       const problem = findProblem(values);
       syncExamples();
@@ -1197,7 +1201,7 @@
         return false;
       }
 
-      const outcome = showResult(values.distance, values.speed);
+      const outcome = showResult(values.distance, values.speed, replayFrom);
       if (!outcome) {
         resetResultSound();
         showPrompt();
@@ -1209,7 +1213,8 @@
       soundForResult(explicit);
 
       if (explicit) {
-        saveEstimate(values.distance, values.speed, outcome);
+        // A replay is a history lesson, not one of the visitor's own estimates, so it is not saved.
+        if (!replayFrom) saveEstimate(values.distance, values.speed, outcome);
         // On a phone the answer sits below the form. Bring it into view, but only if it is off screen.
         result.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
       }
@@ -1260,7 +1265,7 @@
     // The live storm panel (setUpLiveStorm) hands over its two numbers with this event.
     form.addEventListener("landfall:fill", (event) => {
       fillInputs(event.detail.distance, event.detail.speed);
-      update(true);
+      update(true, event.detail.replayFrom);
     });
 
     clearEstimates.addEventListener("click", () => {
@@ -1299,6 +1304,11 @@
   const BAY_OF_BENGAL = { south: 3, north: 24, west: 78, east: 100 };
   const HOUR_MS = 60 * 60 * 1000;
   const STALE_AFTER_HOURS = 36;
+  // Storm times are written the way forecasters write them, "12:00 UTC on 1 May 2008", and in
+  // British English like the Community page's dates, whatever language the device is set to.
+  const UTC_CLOCK = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" });
+  const UTC_DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  const formatUtc = (time) => UTC_CLOCK.format(time) + " UTC on " + UTC_DATE.format(time);
 
   // Cyclone Nargis every six hours (UTC), from NOAA's IBTrACS best-track archive, v04r01.
   const NARGIS_TRACK = [
@@ -1412,9 +1422,7 @@
 
     const MAX_DISTANCE = Number(document.getElementById("storm-distance").max) || 5000;
     const MAX_SPEED = Number(document.getElementById("storm-speed").max) || 100;
-    const utcFormat = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" });
     const clockFormat = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
-    const utc = (time) => utcFormat.format(new Date(time)) + " UTC";
     let numbers = null;     // the { distance, speed } the "Use these numbers" button will hand over
     let replayIndex = -1;   // which Nargis report is showing; -1 when not replaying
     let checking = false;
@@ -1433,7 +1441,7 @@
       // Positions are given to 0.1 of a degree (about 11 km), so finer numbers would be false precision.
       const distance = Math.min(Math.max(Math.round(storm.distance / 10) * 10, 10), MAX_DISTANCE);
       const speed = storm.closing === null ? null : Math.round(storm.closing);
-      const where = storm.name + " was about " + distance.toLocaleString() + " km from the delta coast at " + utc(storm.time);
+      const where = storm.name + " was about " + distance.toLocaleString() + " km from the delta coast at " + formatUtc(storm.time);
       const kickerText = replaying ? "Replay, not a live storm" : "Live storm";
       numbers = null;
 
@@ -1442,7 +1450,7 @@
       } else if (speed < 1) {
         show("watch", kickerText, where + ", and it is not moving toward the delta at the moment.", "There is no landfall time to estimate. Storms change direction, so keep following official forecasts.");
       } else {
-        numbers = { distance, speed: Math.min(speed, MAX_SPEED) };
+        numbers = { distance, speed: Math.min(speed, MAX_SPEED), replayFrom: replaying ? storm.time : undefined };
         const hours = Math.round(numbers.distance / numbers.speed);
         let ending = "That is about " + hours.toLocaleString() + " hours away if nothing changes.";
         if (replaying) {

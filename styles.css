@@ -79,6 +79,8 @@
   --focus: #10303f;
 
   --c-evacuate: #d7263d;
+  /* The evacuate red for small text: plain #d7263d is only 4.2:1 on --surface */
+  --c-evacuate-text: #b62034;
   --on-evacuate: #ffffff;
   --c-prepare: #e8a317;
   --c-alert: #2596a8;
@@ -160,6 +162,7 @@
     --focus: #e6f0ef;
 
     --c-evacuate: #ff6b7a;
+    --c-evacuate-text: #ff6b7a;
     --on-evacuate: #2a0509;
     --c-prepare: #f2b544;
     --c-alert: #5ccbdc;
@@ -186,6 +189,7 @@
   --focus: #e6f0ef;
 
   --c-evacuate: #ff6b7a;
+  --c-evacuate-text: #ff6b7a;
   --on-evacuate: #2a0509;
   --c-prepare: #f2b544;
   --c-alert: #5ccbdc;
@@ -2717,7 +2721,7 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
   .plan-table td:first-child input { min-width: 12rem; }
 }
 .task-remove { width: 2rem; height: 2rem; border: 1px solid transparent; border-radius: 50%; background: transparent; color: var(--ink-soft); font: var(--text-lg)/1 var(--sans); cursor: pointer; }
-.task-remove:hover { border-color: var(--rule); color: var(--c-evacuate); }
+.task-remove:hover { border-color: var(--rule); color: var(--c-evacuate-text); }
 .task-editor-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); margin-top: var(--space-2); }
 .add-task-button { display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-half) 0; border: 0; background: transparent; color: var(--accent); font: var(--weight-medium) var(--text-sm) var(--sans); cursor: pointer; }
 .add-task-button span { font-size: var(--text-md); }
@@ -2758,7 +2762,7 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 /* Sources */
 .sources-section { padding-top: 3.5rem; }
 .reference-toolbar { align-items: end; }
-.reference-toolbar h2 { margin-bottom: .3rem; }
+.reference-toolbar h2 { margin-bottom: .3rem; scroll-margin-top: 8rem; } /* the footer links to #credits-title */
 .reference-controls { display: grid; gap: .7rem; justify-items: start; }
 .reference-filter { width: min(100%, 21rem); }
 .reference-count { color: var(--ink-soft); font: var(--weight-medium) var(--text-sm) var(--sans); }
@@ -3076,22 +3080,25 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 @media (min-width: 48rem) { .tl-panel { grid-template-columns: 15rem minmax(0, 1fr); } }
 
 .tl-date { font-weight: 700; font-size: var(--text-sm); color: var(--accent); font-variant-numeric: tabular-nums; }
-.tl-major .tl-date { color: var(--c-evacuate); }
+.tl-major .tl-date { color: var(--c-evacuate-text); }
 .tl-head h3 { margin-top: .2rem; font: 700 var(--text-lg)/1.15 var(--display); letter-spacing: -.01em; }
 .tl-place { margin-top: .3rem; color: var(--ink-soft); font-size: var(--text-sm); }
 .tl-toll { display: inline-block; margin-top: 1rem; padding: .3rem .8rem; border-radius: 10px; border: 1.5px solid var(--c-evacuate); font-weight: 700; font-size: var(--text-sm); line-height: 1.35; }
 .tl-text { max-width: 38rem; font-size: var(--text-md); line-height: 1.6; }
 
 /* The track */
+/* Each stop is at least 7.5rem, room for the longest year ("1967–68") plus the 1rem gap, so
+   on phones the stops stay evenly spaced; max-content still widens a stop if a label is longer,
+   so a year can never run into the next one. */
 .tl-track {
-  position: relative; display: grid; grid-template-columns: repeat(var(--tl-count, 5), minmax(6.5rem, 1fr));
+  position: relative; display: grid; grid-template-columns: repeat(var(--tl-count, 5), minmax(max-content, 1fr));
   /* overflow-x also clips vertically, so pad the track (and pull it back with negative margins)
      to leave room for each marker's halo */
   overflow-x: auto; scrollbar-width: none; margin: -.75rem -.75rem 0; padding: .75rem .75rem .25rem;
 }
 .tl-track::-webkit-scrollbar { display: none; }
 .tl-stop {
-  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: .15rem;
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: .15rem; min-width: 7.5rem;
   padding: calc(var(--tl-dot) + .85rem) 1rem .5rem 0; border: 0; background: none; color: var(--ink-soft);
   font: inherit; text-align: left; cursor: pointer;
 }
@@ -3246,7 +3253,7 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
   color: var(--ink);
   font: .95em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
-.field-error { color: var(--c-evacuate); font: var(--weight-medium) var(--text-sm)/1.4 var(--sans); }
+.field-error { color: var(--c-evacuate-text); font: var(--weight-medium) var(--text-sm)/1.4 var(--sans); }
 .field-error::before { content: "! "; font-weight: var(--weight-bold); }
 .form-field [aria-invalid="true"] { border-color: var(--c-evacuate); }
 .form-field textarea { min-height: 0; resize: vertical; line-height: 1.5; }

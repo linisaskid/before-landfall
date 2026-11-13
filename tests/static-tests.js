@@ -396,7 +396,7 @@
       }
       const number = Number(cite.ref.slice(4));
       if (Number(cite.text) !== number) problems.push(where + ": marker text " + cite.text + " does not match");
-      if (number <= 23 && cite.text !== entry.dataset.num) problems.push(where + ": marker text " + cite.text + " should be " + entry.dataset.num);
+      if (number <= 25 && cite.text !== entry.dataset.num) problems.push(where + ": marker text " + cite.text + " should be " + entry.dataset.num);
       if (cite.label !== "Source " + number + ": " + cite.title) problems.push(where + ': aria-label "' + cite.label + '" does not match its title');
       if (titles.has(cite.ref) && titles.get(cite.ref) !== cite.title) problems.push(where + ': title "' + cite.title + '" differs from "' + titles.get(cite.ref) + '"');
       titles.set(cite.ref, cite.title);

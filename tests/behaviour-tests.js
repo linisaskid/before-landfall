@@ -668,12 +668,20 @@
     assert.equal(text(page.$("#live-storm-kicker")), "Replay, not a live storm");
     // 12:00 UTC on 1 May 2008: 16.0 N 90.6 E, six hours after 16.0 N 89.7 E.
     assert.ok(status().includes("about 430 km") && status().includes("about 16 km every hour"), "replay start says: " + status());
+    assert.ok(status().includes("at 12:00 UTC on 1 May 2008,"), "the report time is written in UTC: " + status());
 
     page.$("#live-storm-use").click();
     assert.equal(calc.distance.value, "430");
     assert.equal(calc.speed.value, "16");
     assert.equal(calc.stage(), "alert");
-    assert.ok(calc.history()[0].startsWith("430 km ÷ 16 km/h"), "the replay estimate is saved like any other");
+    // 430 ÷ 16 = 26.875 h after 12:00 UTC on 1 May 2008, so the arrival is on 2 May 2008, not tomorrow,
+    // written the same way as the panel's report time.
+    assert.equal(text(page.$("#result-arrival")), "In the replay, if the speed had stayed the same: 14:52 UTC on 2 May 2008.");
+    assert.equal(calc.history().length, 0, "a replay is not saved as one of the visitor's estimates");
+    // Typing afterwards is an ordinary estimate again, counted from now.
+    calc.submit(430, 16);
+    assert.ok(text(page.$("#result-arrival")).startsWith("If the speed stays the same"), "a typed estimate counts from now");
+    assert.ok(calc.history()[0].startsWith("430 km ÷ 16 km/h"), "and it is saved");
 
     // The storm only gets closer through the replay, and the ends of the track stop the buttons.
     const later = page.$("#live-storm-later");
@@ -1160,28 +1168,28 @@
 
   test("sources: following a marker shows the entry even if it was filtered out, and offers a way back", async () => {
     let page = await openPage("cyclones.html", { real: true });
-    page.$('sup.cite a[href="sources.html#ref-16"]').click();
+    page.$('sup.cite a[href="sources.html#ref-18"]').click();
     page = await nextLoad(page);
-    assert.match(page.win.location.href, /sources\.html#ref-16$/);
-    const back = page.$("#ref-16 .cite-back");
+    assert.match(page.win.location.href, /sources\.html#ref-18$/);
+    const back = page.$("#ref-18 .cite-back");
     assert.ok(back, "a back link is added to the entry");
     assert.equal(text(back), "← Back to Cyclones");
     assert.equal(page.$$(".cite-back").length, 1, "only one back link");
 
     setValue(page.$("#reference-filter"), "warnings", ["change"]);
-    assert.ok(page.$("#ref-18").hidden, "ref-18 is filtered out");
-    page.win.location.hash = "#ref-18";
+    assert.ok(page.$("#ref-20").hidden, "ref-20 is filtered out");
+    page.win.location.hash = "#ref-20";
     await sleep(100);
     assert.equal(page.$("#reference-filter").value, "all", "the filter resets");
-    assert.ok(!page.$("#ref-18").hidden, "the entry is shown");
+    assert.ok(!page.$("#ref-20").hidden, "the entry is shown");
     assert.equal(page.$$(".cite-back").length, 1, "still one back link");
-    assert.ok(page.$("#ref-18 .cite-back"), "the back link moves to the new entry");
+    assert.ok(page.$("#ref-20 .cite-back"), "the back link moves to the new entry");
     noErrors(page);
 
     page = await openPage("cyclones.html", { real: true });
-    page.$('sup.cite a[href="sources.html#ref-16"]').click();
+    page.$('sup.cite a[href="sources.html#ref-18"]').click();
     page = await nextLoad(page);
-    page.$("#ref-16 .cite-back").click();
+    page.$("#ref-18 .cite-back").click();
     page = await nextLoad(page);
     assert.match(page.win.location.pathname, /cyclones\.html$/, "the back link returns to the Cyclones page");
     noErrors(page);
