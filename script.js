@@ -1967,9 +1967,9 @@
     if (!timeline || !list || !panels.length) return;
 
     const ranges = {
-      evacuate: "Less than " + EVACUATE_BELOW + " hours in this example",
+      evacuate: "Under " + EVACUATE_BELOW + " hours in this example",
       prepare: EVACUATE_BELOW + " to " + ALERT_ABOVE + " hours in this example",
-      alert: "More than " + ALERT_ABOVE + " hours in this example",
+      alert: "Over " + ALERT_ABOVE + " hours in this example",
     };
 
     const explorerStages = STAGES.slice().reverse().map((stage, index) => ({
