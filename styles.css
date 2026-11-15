@@ -1341,6 +1341,14 @@ html.header-is-compact .site-header .brand-wordmark-fold {
   transform: translateX(calc(var(--active, 0) * 100%));
 }
 
+/* The full stage names, as on the Warnings page, when the card has room for them;
+   on a narrow card the pills fall back to their first word. */
+[data-demo="warnings"] { container-type: inline-size; }
+
+@container (max-width: 27rem) {
+  .demo-seg-more { display: none; }
+}
+
 .demo-seg[data-active="1"] { --active: 1; }
 .demo-seg[data-active="2"] { --active: 2; }
 

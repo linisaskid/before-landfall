@@ -761,7 +761,7 @@
     assert.equal(stages.length, 3, "STAGES in script.js");
     const evacuate = Number(/const EVACUATE_BELOW = (\d+)/.exec(js)[1]);
     const alert = Number(/const ALERT_ABOVE = (\d+)/.exec(js)[1]);
-    const ranges = { evacuate: "Less than " + evacuate + " hours in this example", prepare: evacuate + " to " + alert + " hours in this example", alert: "More than " + alert + " hours in this example" };
+    const ranges = { evacuate: "Under " + evacuate + " hours in this example", prepare: evacuate + " to " + alert + " hours in this example", alert: "Over " + alert + " hours in this example" };
     const problems = [];
     const warnings = await getDoc("warnings.html");
     stages.forEach((stage) => {
