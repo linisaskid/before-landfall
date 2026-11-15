@@ -185,7 +185,7 @@
     assert.none(missing, "missing files");
   });
 
-  test("static: no external scripts, styles, fonts or network calls (Wikimedia photos are the one exception)", async () => {
+  test("static: no external scripts, styles, fonts or network calls (Wikimedia photos and the GDACS storm check are the exceptions)", async () => {
     const problems = [];
     for (const page of PAGES) {
       const doc = await getDoc(page);
@@ -213,7 +213,16 @@
       if (/url\(\s*["']?(?:[a-z]+:)?\/\//i.test(css)) problems.push(sheet + ": loads a url() from another site");
     }
     for (const file of [...SITE_SCRIPTS, ...LIB_SCRIPTS]) {
-      const js = await getText(file);
+      let js = await getText(file);
+      // The calculator's live storm check is the one network call on the site. It lives in a
+      // single function in script.js that refuses every address outside the GDACS API.
+      if (file === "script.js") {
+        const calls = js.match(/\bfetch\(/g) || [];
+        const gate = /async function getGdacs\(url\) \{\s*if \(!String\(url\)\.startsWith\(GDACS_API\)\) throw/;
+        if (calls.length !== 1 || !gate.test(js)) problems.push(file + ": expected exactly one fetch(, inside getGdacs and behind its address check (found " + calls.length + ")");
+        if (!js.includes('const GDACS_API = "https://www.gdacs.org/gdacsapi/api/";')) problems.push(file + ": GDACS_API is not the GDACS address");
+        js = js.replace(/\bfetch\(/, "");
+      }
       const match = /\b(fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts)|\bimport\(/.exec(js);
       if (match) problems.push(file + ": network call (" + match[0] + ")");
     }
@@ -234,6 +243,7 @@
       styles: Array.from(doc.querySelectorAll('link[rel="stylesheet"]')).map((l) => l.getAttribute("href")).join(","),
       scripts: Array.from(doc.querySelectorAll("script[src]")).map((s) => s.getAttribute("src") + (s.defer ? ":defer" : "")).join(","),
       icon: (doc.querySelector('link[rel="icon"]') || {}).outerHTML,
+      touchIcon: (doc.querySelector('link[rel="apple-touch-icon"]') || {}).outerHTML,
       themeColors: Array.from(doc.querySelectorAll('meta[name="theme-color"]')).map((m) => m.outerHTML).join(""),
     });
     const expected = parts(reference);
@@ -271,6 +281,137 @@
       const inline = Array.from(doc.head.querySelectorAll("script")).map((s) => s.textContent).join("\n");
       const match = /innerWidth\)\s*<=\s*(\d+)/.exec(inline);
       if (!match || Number(match[1]) !== width) problems.push(page + ": inline script uses " + (match ? match[1] : "no") + " instead of " + width);
+    }
+    assert.none(problems);
+  });
+
+  // ==========================================================================
+  // Home-screen icon and the 404 page
+  // ==========================================================================
+
+  // iOS looks for /apple-touch-icon.png at the root of the domain, which on GitHub Pages is
+  // outside the project's folder, so every page names the icon itself. iOS fills any
+  // transparency with black, so the icon must be opaque.
+  test("static: every page and the 404 page link the home-screen icon, a 180 × 180 PNG with no transparency", async () => {
+    const problems = [];
+    for (const page of PAGES.concat("404.html")) {
+      const doc = await getDoc(page);
+      const links = doc.querySelectorAll('link[rel="apple-touch-icon"]');
+      if (links.length !== 1 || links[0].getAttribute("href") !== "apple-touch-icon.png") problems.push(page + ': expected one <link rel="apple-touch-icon" href="apple-touch-icon.png">');
+      else if (links[0].previousElementSibling !== doc.querySelector('link[rel="icon"]')) problems.push(page + ": the apple-touch-icon link does not come straight after the icon link");
+    }
+
+    const response = await fetch(site("apple-touch-icon.png"), { cache: "no-store" });
+    assert.ok(response.ok, "apple-touch-icon.png is missing");
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const view = new DataView(bytes.buffer);
+    const ascii = (start, length) => String.fromCharCode(...bytes.subarray(start, start + length));
+    // A PNG is an 8-byte signature followed by chunks (length, type, data, checksum). The
+    // first chunk, IHDR, holds the width, height, bit depth and colour type.
+    assert.ok(ascii(1, 3) === "PNG" && ascii(12, 4) === "IHDR", "apple-touch-icon.png is not a PNG");
+    const width = view.getUint32(16);
+    const height = view.getUint32(20);
+    if (width !== 180 || height !== 180) problems.push("the icon is " + width + " × " + height + " px, expected 180 × 180");
+    // Colour types 4 and 6 carry an alpha channel; in the others a tRNS chunk adds transparency.
+    const colourType = bytes[25];
+    if (colourType === 4 || colourType === 6) problems.push("the icon has an alpha channel (PNG colour type " + colourType + ")");
+    for (let offset = 8; offset + 8 <= bytes.length; offset += 12 + view.getUint32(offset)) {
+      const type = ascii(offset + 4, 4);
+      if (type === "tRNS") problems.push("the icon has a tRNS (transparency) chunk");
+      if (type === "IEND") break;
+    }
+    if (bytes.length > 20 * 1024) problems.push("the icon is " + Math.round(bytes.length / 1024) + " KB; keep it under 20 KB");
+    assert.none(problems);
+  });
+
+  // GitHub Pages shows 404.html at whatever missing address was asked for, at any depth, so
+  // the page reads its links from <base href="/before-landfall/">. It is not in PAGES: it has
+  // no address of its own (so no og:url), marks no page as current, and its <base> and the
+  // script after it are its own. Everything else matches the other pages.
+  test("static: the 404 page shares the site's header, footer and head, and reads every link from its <base>", async () => {
+    const LIVE = "https://linisaskid.github.io/before-landfall/";
+    const problems = [];
+    const text = await getText("404.html");
+    const doc = await getDoc("404.html");
+    const index = await getDoc("index.html");
+    const meta = (selector) => (doc.querySelector("meta[" + selector + "]") || {}).content;
+
+    // The document basics every page has, plus noindex
+    if (!/^<!DOCTYPE html>/i.test(text)) problems.push("missing <!DOCTYPE html>");
+    if (doc.documentElement.getAttribute("lang") !== "en") problems.push("<html lang> is not en");
+    if (!doc.querySelector('meta[charset="utf-8"]')) problems.push("missing <meta charset>");
+    if (meta('name="viewport"') !== "width=device-width, initial-scale=1") problems.push("viewport meta differs");
+    if (!/not found/i.test(doc.title)) problems.push('the <title> "' + doc.title + '" does not say the page was not found');
+    if (!meta('name="description"')) problems.push("missing meta description");
+    if (meta('name="robots"') !== "noindex") problems.push('missing <meta name="robots" content="noindex">');
+    if (doc.querySelectorAll("main").length !== 1 || !doc.querySelector("main#main")) problems.push('expected one <main id="main">');
+    const firstFocusable = doc.body.querySelector("a, button, input, select, textarea");
+    if (!firstFocusable || firstFocusable.getAttribute("href") !== "#main") problems.push("the first focusable element is not the skip link");
+    if (doc.querySelector("[style]")) problems.push("inline style attribute on <" + doc.querySelector("[style]").tagName.toLowerCase() + ">");
+    const headings = Array.from(doc.body.querySelectorAll("h1, h2, h3, h4, h5, h6"));
+    if (doc.querySelectorAll("h1").length !== 1 || !headings.length || headings[0].tagName !== "H1") problems.push("expected one h1, as the first heading");
+    for (let i = 1; i < headings.length; i += 1) {
+      if (Number(headings[i].tagName[1]) > Number(headings[i - 1].tagName[1]) + 1) problems.push('"' + headings[i].textContent.trim() + '" skips a heading level');
+    }
+    const ids = new Set();
+    doc.querySelectorAll("[id]").forEach((element) => {
+      if (ids.has(element.id)) problems.push("duplicate id #" + element.id);
+      ids.add(element.id);
+    });
+    ["for", "aria-labelledby", "aria-describedby", "aria-controls"].forEach((attr) => {
+      doc.querySelectorAll("[" + attr + "]").forEach((element) => {
+        element.getAttribute(attr).split(/\s+/).filter(Boolean).forEach((id) => {
+          if (!ids.has(id)) problems.push(attr + '="' + id + '" has no matching id');
+        });
+      });
+    });
+    doc.querySelectorAll("a[href]").forEach((link) => {
+      if (!accessibleName(link)) problems.push("unnamed link to " + link.getAttribute("href"));
+    });
+
+    // The same furniture as every other page, with no page marked as current
+    const same = (selector) => normalize(doc.querySelector(selector).outerHTML) === normalize(index.querySelector(selector).outerHTML);
+    if (!same("body > header.site-header")) problems.push("the header differs from index.html's");
+    if (!same("body > footer.site-footer")) problems.push("the footer differs from index.html's");
+    if (doc.querySelector("[aria-current]")) problems.push("a link is marked aria-current, but no page is current");
+    const [baseScript, ...headScripts] = Array.from(doc.head.querySelectorAll("script"));
+    const shared = {
+      "head scripts": (d, scripts) => scripts.map((s) => normalize(s.textContent)).join("\n"),
+      stylesheets: (d) => Array.from(d.querySelectorAll('link[rel="stylesheet"]')).map((l) => l.getAttribute("href")).join(","),
+      "scripts and their order": (d) => Array.from(d.querySelectorAll("script[src]")).map((s) => s.getAttribute("src") + (s.defer ? ":defer" : "")).join(","),
+      icons: (d) => Array.from(d.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]')).map((l) => l.outerHTML).join(""),
+      "theme colours": (d) => Array.from(d.querySelectorAll('meta[name="theme-color"]')).map((m) => m.outerHTML).join(""),
+    };
+    Object.keys(shared).forEach((name) => {
+      if (shared[name](doc, headScripts) !== shared[name](index, Array.from(index.head.querySelectorAll("script")))) problems.push(name + " differ from index.html's");
+    });
+
+    // A clear way home
+    if (!doc.querySelector('main a[href="index.html"]')) problems.push("no link to the home page in <main>");
+
+    // Link previews: the site's own image, but no og:url, since a missing page has no address
+    if (meta('property="og:image"') !== LIVE + "images/share.png") problems.push("og:image is not the site's share image");
+    if (doc.querySelector('meta[property="og:url"]')) problems.push("has an og:url");
+
+    // One <base>, before anything with a link, naming the live site's folder; then its script
+    const bases = doc.querySelectorAll("base");
+    const base = bases[0];
+    if (bases.length !== 1) problems.push("expected one <base>, found " + bases.length);
+    if (base) {
+      if (base.getAttribute("href") !== "/before-landfall/") problems.push('<base href="' + base.getAttribute("href") + '">, expected "/before-landfall/"');
+      const image = meta('property="og:image"');
+      if (!image || new URL(image).pathname !== base.getAttribute("href") + "images/share.png") problems.push("the <base> is not the live site's folder, which og:image points into");
+      if (doc.querySelector("[href], [src]") !== base) problems.push("something with a link comes before the <base>");
+      if (base.nextElementSibling !== baseScript) problems.push("the script that adjusts the <base> does not come straight after it");
+    }
+
+    // Every local link and file exists in the site's folder, where the <base> points
+    for (const element of doc.querySelectorAll("[href], [src]")) {
+      const url = element.getAttribute("href") || element.getAttribute("src");
+      if (element === base || isExternal(url) || url.startsWith("#")) continue;
+      const [file, hash] = url.split("#");
+      if (!(await exists(file))) problems.push("links to missing file " + url);
+      else if (hash && PAGES.includes(file) && !(await getDoc(file)).getElementById(decodeURIComponent(hash))) problems.push(url + " has no matching id");
     }
     assert.none(problems);
   });
@@ -356,6 +497,9 @@
           if (commonsFile(url) !== file) problems.push(page + ": srcset mixes files: " + url);
           const width = /[?&]width=(\d+)/.exec(url);
           if (width && descriptor !== width[1] + "w") problems.push(page + ": " + file + " candidate width=" + width[1] + " is described as " + descriptor);
+          // Full-size originals run to 3.5 MB; a 1920 px copy is about a third of that and still
+          // fills a large phone's screen, so no candidate is offered above 1920w.
+          if (parseInt(descriptor, 10) > 1920) problems.push(page + ": " + file + " offers a " + descriptor + " candidate; 1920w is the largest");
         });
       });
     }
@@ -384,7 +528,7 @@
       }
       const number = Number(cite.ref.slice(4));
       if (Number(cite.text) !== number) problems.push(where + ": marker text " + cite.text + " does not match");
-      if (number <= 23 && cite.text !== entry.dataset.num) problems.push(where + ": marker text " + cite.text + " should be " + entry.dataset.num);
+      if (number <= 25 && cite.text !== entry.dataset.num) problems.push(where + ": marker text " + cite.text + " should be " + entry.dataset.num);
       if (cite.label !== "Source " + number + ": " + cite.title) problems.push(where + ': aria-label "' + cite.label + '" does not match its title');
       if (titles.has(cite.ref) && titles.get(cite.ref) !== cite.title) problems.push(where + ': title "' + cite.title + '" differs from "' + titles.get(cite.ref) + '"');
       titles.set(cite.ref, cite.title);
@@ -507,6 +651,43 @@
     const metas = Array.from(index.querySelectorAll('meta[name="theme-color"]'));
     assert.equal(metas.find((m) => /light/.test(m.media)).content.toLowerCase(), tokens(light[1])["--paper"].toLowerCase(), "light theme-color");
     assert.equal(metas.find((m) => /dark/.test(m.media)).content.toLowerCase(), tokens(system[1])["--paper"].toLowerCase(), "dark theme-color");
+  });
+
+  test("static: form field borders have 3:1 contrast with the page and card colours in both themes", async () => {
+    // WCAG 1.4.11: the edge of a text box or menu needs 3:1 against what it sits on.
+    // Every field sits on --paper (the page) or --surface (a card).
+    const css = stripComments(await getText("styles.css"));
+    const tokens = (block) => {
+      const map = {};
+      for (const match of block.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) map[match[1]] = match[2].trim();
+      return map;
+    };
+    const luminance = (hex) => {
+      const channels = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+      const [r, g, b] = channels.map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const contrast = (a, b) => {
+      const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (high + 0.05) / (low + 0.05);
+    };
+    const light = tokens(/:root\s*\{([^}]*)\}/.exec(css)[1]);
+    const dark = { ...light, ...tokens(/:root\[data-theme="dark"\]\s*\{([^}]*)\}/.exec(css)[1]) };
+    const problems = [];
+    for (const [theme, colours] of [["light", light], ["dark", dark]]) {
+      const border = colours["--control-border"];
+      if (!/^#[0-9a-f]{6}$/i.test(border || "")) { problems.push(theme + ": --control-border should be a six-digit hex colour, got " + border); continue; }
+      for (const surface of ["--paper", "--surface"]) {
+        const ratio = contrast(border, colours[surface]);
+        if (ratio < 3) problems.push(theme + ": --control-border " + border + " on " + surface + " " + colours[surface] + " is " + ratio.toFixed(2) + ":1");
+      }
+    }
+    // The token only helps if the fields use it.
+    for (const selector of [".form-field input, .form-field select, .form-field textarea", ".input-with-unit", ".password-field", ".plan-table input"]) {
+      const rule = new RegExp("(^|\\})\\s*" + selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\{([^}]*)\\}").exec(css);
+      if (!rule || !/border:[^;]*var\(--control-border\)/.test(rule[2])) problems.push(selector + ": border should use var(--control-border)");
+    }
+    assert.none(problems, "form field borders");
   });
 
   test("static: every CSS custom property used without a fallback is defined", async () => {

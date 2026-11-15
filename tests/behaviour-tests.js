@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const { PAGES, test, assert, getText, openPage, nextLoad, errorsIn, fire, setValue, key, sleep, frames, random } = window.Harness;
+  const { PAGES, test, assert, getText, getDoc, openPage, nextLoad, errorsIn, fire, setValue, key, sleep, frames, random } = window.Harness;
 
   const WIDTHS = [320, 390, 768, 1024, 1440];
   const STAGE_NAMES = { evacuate: "Evacuate now", prepare: "Prepare to leave", alert: "Stay alert" };
@@ -70,7 +70,7 @@
   // Every page, at every width
   // ==========================================================================
 
-  PAGES.forEach((path) => {
+  PAGES.concat("404.html").forEach((path) => {
     test("load: " + path + " runs without errors and nothing sticks out at " + WIDTHS.join(", ") + " px", async () => {
       const problems = [];
       for (const width of WIDTHS) {
@@ -149,8 +149,83 @@
   });
 
   // ==========================================================================
+  // The 404 page
+  // ==========================================================================
+
+  test("404: opened at its own address, the page drops its <base>, so its links and skip link stay on this copy of the site", async () => {
+    const page = await openPage("404.html", { real: true, width: 1280, height: 800 });
+    const here = page.win.location.href.split("#")[0];
+    assert.match(here, /\/404\.html$/, "address");
+    assert.ok(!page.$("base"), "the <base> is still there");
+    assert.equal(page.$(".skip-link").href, here + "#main", "skip link");
+    assert.equal(page.$("main a.button").href, new URL("index.html", here).href, "home link");
+    assert.ok(Array.from(page.doc.styleSheets).some((sheet) => /\/styles\.css$/.test(sheet.href) && sheet.cssRules.length > 100), "styles.css did not load");
+    assert.ok(page.win.Sound && page.win.BeforeLandfallCommunity && !page.$("#theme-switch").hidden, "the site's scripts did not all run");
+    // The skip link moves within the page rather than loading another one.
+    page.$(".skip-link").click();
+    await sleep(100);
+    assert.equal(page.win.location.href, here + "#main", "address after following the skip link");
+    noErrors(page);
+  });
+
+  // GitHub Pages shows 404.html at any missing address, which a local server cannot do, so
+  // the page's <base> script is run here against made-up addresses instead.
+  test("404: the <base> script finds the site's folder on GitHub Pages at any depth, in the local preview, from disk and on another domain", async () => {
+    const html = await getText("404.html");
+    const LIVE = "https://linisaskid.github.io/before-landfall/";
+    const cases = [
+      // [address, expected <base href> (null: removed), where the home link goes]
+      [LIVE + "nope", "/before-landfall/", LIVE + "index.html"],
+      [LIVE + "a/b/c.html?q=1#top", "/before-landfall/", LIVE + "index.html"],
+      [LIVE + "404.html", "/before-landfall/", LIVE + "index.html"],
+      ["http://localhost:8123/404.html", null, "http://localhost:8123/index.html"],
+      ["file:///Users/someone/Before%20Landfall/404.html", null, "file:///Users/someone/Before%20Landfall/index.html"],
+      ["https://example.org/a/b/c", "/", "https://example.org/index.html"],
+    ];
+    const problems = [];
+    cases.forEach(([address, expectedBase, expectedHome]) => {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const script = doc.querySelector("base").nextElementSibling;
+      const onLoad = [];
+      const fakeDocument = {
+        currentScript: script,
+        addEventListener: (type, listener) => { if (type === "DOMContentLoaded") onLoad.push(listener); },
+        querySelectorAll: (selector) => doc.querySelectorAll(selector),
+      };
+      const url = new URL(address);
+      new Function("document", "window", script.textContent)(fakeDocument, { location: { pathname: url.pathname, href: url.href } });
+      onLoad.forEach((listener) => listener());
+
+      const base = doc.querySelector("base");
+      const baseHref = base ? base.getAttribute("href") : null;
+      if (baseHref !== expectedBase) problems.push(address + ": <base> is " + baseHref + ", expected " + expectedBase);
+      const home = new URL(doc.querySelector("main a.button").getAttribute("href"), baseHref ? new URL(baseHref, address) : address).href;
+      if (home !== expectedHome) problems.push(address + ": the home link goes to " + home);
+      const skip = doc.querySelector(".skip-link").getAttribute("href");
+      if (skip !== address.split("#")[0] + "#main") problems.push(address + ": the skip link points at " + skip);
+    });
+    assert.none(problems);
+  });
+
+  // ==========================================================================
   // Site-wide controls
   // ==========================================================================
+
+  test("site: the soft bottom edge switches off as soon as the footer comes into view", async () => {
+    const page = await openPage("index.html", { width: 1280, height: 800 });
+    const edge = page.$(".motion-edge");
+    assert.ok(edge, "the edge was added");
+    await sleep(150);
+    assert.ok(!edge.classList.contains("is-off"), "on at the top of the page");
+    const footerTop = page.$(".site-footer").getBoundingClientRect().top + page.win.scrollY;
+    page.win.scrollTo({ top: footerTop - 800 + 40, behavior: "instant" }); // 40 px of footer showing
+    await sleep(150);
+    assert.ok(edge.classList.contains("is-off"), "off once the footer's top edge is on screen");
+    page.win.scrollTo({ top: footerTop - 800 - 200, behavior: "instant" });
+    await sleep(150);
+    assert.ok(!edge.classList.contains("is-off"), "on again when the footer scrolls away");
+    noErrors(page);
+  });
 
   test("site: the theme switch applies, remembers and resets the theme", async () => {
     let page = await openPage("calculator.html");
@@ -631,11 +706,64 @@
       previous = gauge;
     }
     assert.ok(previous >= 0);
-    // The gauge runs from far (left) to close (right): fewer hours sit further right.
+    // The gauge runs from close (left) to far (right), like the home slider: fewer hours sit further left.
     const gaugeAt = (h) => { calc.submit(h * 10, 10); return parseFloat(page.$("#result-marker").style.getPropertyValue("--gauge-position")); };
-    const points = [100, 72, 48, 25, 24, 18, 12, 6, 5, 3, 1, 0.5].map(gaugeAt);
-    for (let i = 1; i < points.length; i += 1) if (points[i] < points[i - 1]) problems.push("the gauge moves left between " + i + " and " + (i + 1));
+    const hoursList = [100, 72, 48, 25, 24, 18, 12, 6, 5, 3, 1, 0.5];
+    const points = hoursList.map(gaugeAt);
+    for (let i = 1; i < points.length; i += 1) if (points[i] > points[i - 1]) problems.push("the gauge moves right between " + hoursList[i - 1] + " h and " + hoursList[i] + " h");
+    // 6 h and 24 h sit exactly on the edges between the bands, which are 1 : 1.2 : 1 wide.
+    if (Math.abs(gaugeAt(6) - 100 / 3.2) > 0.01) problems.push("6 h is at " + gaugeAt(6) + "%, not on the Under 6 h | 6–24 h edge");
+    if (Math.abs(gaugeAt(24) - 220 / 3.2) > 0.01) problems.push("24 h is at " + gaugeAt(24) + "%, not on the 6–24 h | Over 24 h edge");
     assert.none(problems);
+    noErrors(page);
+  });
+
+  test("calculator: the Nargis replay works out the two numbers and hands them to the calculator, with no network", async () => {
+    const page = await openPage("calculator.html");
+    const calc = calculator(page);
+    const panel = page.$("#live-storm");
+    const status = () => text(page.$("#live-storm-status"));
+    assert.ok(!panel.hidden, "the live storm panel shows once the script has run");
+    assert.ok(page.$("#live-storm-use").hidden && page.$("#live-storm-steps").hidden, "no numbers or replay steps before anything is pressed");
+
+    page.$("#live-storm-replay").click();
+    assert.equal(panel.dataset.storm, "storm");
+    assert.equal(text(page.$("#live-storm-kicker")), "Replay, not a live storm");
+    // 12:00 UTC on 1 May 2008: 16.0 N 90.6 E, six hours after 16.0 N 89.7 E.
+    assert.ok(status().includes("about 430 km") && status().includes("about 16 km every hour"), "replay start says: " + status());
+    assert.ok(status().includes("at 12:00 UTC on 1 May 2008,"), "the report time is written in UTC: " + status());
+
+    page.$("#live-storm-use").click();
+    assert.equal(calc.distance.value, "430");
+    assert.equal(calc.speed.value, "16");
+    assert.equal(calc.stage(), "alert");
+    // 430 ÷ 16 = 26.875 h after 12:00 UTC on 1 May 2008, so the arrival is on 2 May 2008, not tomorrow,
+    // written the same way as the panel's report time.
+    assert.equal(text(page.$("#result-arrival")), "In the replay, if the speed had stayed the same: 14:52 UTC on 2 May 2008.");
+    assert.equal(calc.history().length, 0, "a replay is not saved as one of the visitor's estimates");
+    // Typing afterwards is an ordinary estimate again, counted from now.
+    calc.submit(430, 16);
+    assert.ok(text(page.$("#result-arrival")).startsWith("If the speed stays the same"), "a typed estimate counts from now");
+    assert.ok(calc.history()[0].startsWith("430 km ÷ 16 km/h"), "and it is saved");
+
+    // The storm only gets closer through the replay, and the ends of the track stop the buttons.
+    const later = page.$("#live-storm-later");
+    const earlier = page.$("#live-storm-earlier");
+    const km = () => Number(/about ([\d,.\s]+) km from/.exec(status())[1].replace(/\D/g, ""));
+    let previous = km();
+    while (!later.disabled) {
+      later.click();
+      assert.ok(km() < previous, "6 h later is closer: " + status());
+      previous = km();
+    }
+    page.$("#live-storm-use").click();
+    assert.equal(calc.stage(), "prepare");
+    while (!earlier.disabled) earlier.click();
+    assert.ok(km() > 430, "the earliest step is further out: " + status());
+
+    page.$("#live-storm-replay").click();
+    assert.equal(panel.dataset.storm, "idle");
+    assert.ok(page.$("#live-storm-use").hidden && page.$("#live-storm-steps").hidden, "leaving the replay puts the panel back");
     noErrors(page);
   });
 
@@ -643,16 +771,17 @@
     const page = await openPage("calculator.html");
     const calc = calculator(page);
     const cases = [
-      ["", "", /^Enter both/, "storm-distance"],
-      ["600", "", /^Enter both/, "storm-speed"],
-      ["", "30", /^Enter both/, "storm-distance"],
-      ["0", "30", /^Enter a distance greater than 0 and no more than 5,000 km\.$/, "storm-distance"],
-      ["-5", "30", /^Enter a distance/, "storm-distance"],
-      ["5000.01", "30", /^Enter a distance/, "storm-distance"],
-      ["600", "0", /^Enter a forward speed greater than 0 and no more than 100 km\/h\.$/, "storm-speed"],
+      ["", "", /^Enter a storm centre to coast distance from 0\.1 to 5,000 km\.$/, "storm-distance"],
+      ["600", "", /^Enter a forward speed from 1 to 100 km\/h\.$/, "storm-speed"],
+      ["", "30", /^Enter a storm centre to coast distance/, "storm-distance"],
+      ["0", "30", /^Enter a storm centre to coast distance/, "storm-distance"],
+      ["-5", "30", /^Enter a storm centre to coast distance/, "storm-distance"],
+      ["5000.01", "30", /^Enter a storm centre to coast distance/, "storm-distance"],
+      ["600", "0", /^Enter a forward speed from 1 to 100 km\/h\.$/, "storm-speed"],
+      ["600", "0.5", /^Enter a forward speed/, "storm-speed"],
       ["600", "100.5", /^Enter a forward speed/, "storm-speed"],
       ["600", "-1", /^Enter a forward speed/, "storm-speed"],
-      ["600", "1e-12", /too large to estimate/, null],
+      ["600", "1e-12", /^Enter a forward speed/, "storm-speed"],
     ];
     const problems = [];
     for (const [d, s, message, field] of cases) {
@@ -668,6 +797,155 @@
     noErrors(page);
   });
 
+  test("calculator: the distance box and the script agree on one range, with one message for anything outside it", async () => {
+    const page = await openPage("calculator.html");
+    const calc = calculator(page);
+    const MESSAGE = "Enter a storm centre to coast distance from 0.1 to 5,000 km.";
+    const problems = [];
+    // The form is novalidate, so the browser never shows its own bubble; its rule must still match the script's.
+    assert.equal(page.$("#landfall-form").noValidate, true, "the form leaves validation to the script");
+    assert.equal(calc.distance.min, "0.1", "distance min");
+    assert.equal(calc.distance.max, "5000", "distance max");
+    assert.equal(calc.distance.step, "any", "any decimal is allowed");
+    assert.equal(calc.distance.inputMode, "decimal", "phones show a keypad with a decimal point");
+
+    // A short distance is a real answer: 0.5 km at 30 km/h is about a minute.
+    calc.submit("0.5", 30);
+    assert.ok(calc.shown(), "0.5 km gives a result");
+    assert.equal(calc.hours(), (0.02).toLocaleString(undefined, { maximumFractionDigits: 2 }));
+    assert.equal(calc.error(), null, "and no error");
+
+    // Empty, zero, negative and too far all get the same message and send focus to the distance box.
+    for (const value of ["", "0", "-2", "0.05", "5001"]) {
+      calc.submit(value, 30);
+      if (calc.shown()) problems.push(JSON.stringify(value) + ": shows a result");
+      if (calc.error() !== MESSAGE) problems.push(JSON.stringify(value) + ': message "' + calc.error() + '"');
+      if (page.doc.activeElement !== calc.distance) problems.push(JSON.stringify(value) + ": focus is on " + page.doc.activeElement.id);
+    }
+
+    // The browser's own validity check and the script accept exactly the same numbers.
+    for (const value of ["", "0", "-2", "0.05", "0.09", "0.1", "0.5", "1", "600", "4999.99", "5000", "5000.01"]) {
+      calc.submit(value, 30);
+      const browser = calc.distance.validity.valid;
+      const script = calc.shown();
+      if (browser !== script) problems.push(JSON.stringify(value) + ": the browser says " + (browser ? "valid" : "invalid") + " but the script " + (script ? "accepts" : "rejects") + " it");
+    }
+    assert.none(problems);
+    noErrors(page);
+  });
+
+  test("calculator: the speed box and the script agree on one range, with one message for anything outside it", async () => {
+    const page = await openPage("calculator.html");
+    const calc = calculator(page);
+    const MESSAGE = "Enter a forward speed from 1 to 100 km/h.";
+    const problems = [];
+    assert.equal(calc.speed.min, "1", "speed min");
+    assert.equal(calc.speed.max, "100", "speed max");
+    assert.equal(calc.speed.step, "any", "any decimal is allowed");
+    assert.equal(calc.speed.inputMode, "decimal", "phones show a keypad with a decimal point");
+
+    // A stalled storm crawling at 1 km/h is a real answer, the slowest the box takes.
+    calc.submit(600, "1");
+    assert.ok(calc.shown(), "1 km/h gives a result");
+    assert.equal(calc.hours(), (600).toLocaleString(undefined, { maximumFractionDigits: 2 }));
+    assert.equal(calc.error(), null, "and no error");
+
+    // Empty, zero, negative, too slow and too fast all get the same message and send focus to the speed box.
+    for (const value of ["", "0", "-2", "0.5", "0.99", "100.01", "250"]) {
+      calc.submit(600, value);
+      if (calc.shown()) problems.push(JSON.stringify(value) + ": shows a result");
+      if (calc.error() !== MESSAGE) problems.push(JSON.stringify(value) + ': message "' + calc.error() + '"');
+      if (page.doc.activeElement !== calc.speed) problems.push(JSON.stringify(value) + ": focus is on " + page.doc.activeElement.id);
+    }
+
+    // The browser's own validity check and the script accept exactly the same numbers.
+    for (const value of ["", "0", "-2", "0.5", "0.99", "1", "1.5", "30", "99.99", "100", "100.01"]) {
+      calc.submit(600, value);
+      const browser = calc.speed.validity.valid;
+      const script = calc.shown();
+      if (browser !== script) problems.push(JSON.stringify(value) + ": the browser says " + (browser ? "valid" : "invalid") + " but the script " + (script ? "accepts" : "rejects") + " it");
+    }
+    assert.none(problems);
+    noErrors(page);
+  });
+
+  test("calculator: the result gauge runs the same way as the home page slider, with Evacuate now on the left", async () => {
+    const problems = [];
+    const HOURS = [3, 6, 12, 24, 30, 72];
+    // Where an element's left and right edges sit, as percentages across a reference box.
+    const span = (element, reference) => {
+      const box = reference.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
+      return { left: ((rect.left - box.left) / box.width) * 100, right: ((rect.right - box.left) / box.width) * 100 };
+    };
+    const firstColour = (value) => (/(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\([^)]*\)/.exec(value) || [""])[0];
+    // 6 h and 24 h sit on an edge, and a laid-out edge can be a fraction of a pixel off, so give it 0.5%.
+    const bandAt = (position, edges) => (position < edges.evacuate.right - 0.5 ? "evacuate" : position <= edges.prepare.right + 0.5 ? "prepare" : "alert");
+    // Both bars, read the same way: where each band sits and where each answer lands, in % from the left.
+    // Only one page is open at a time, so the slider is read in full before the calculator opens.
+    const bars = {};
+
+    // The home page slider: low hours on the left, as a range input always runs.
+    const home = await openPage("index.html", { inject: REDUCED_MOTION });
+    const slider = home.$("#hours");
+    const s1 = parseFloat(home.$("#panel").style.getPropertyValue("--s1"));
+    const s2 = parseFloat(home.$("#panel").style.getPropertyValue("--s2"));
+    const evacuateColour = firstColour(home.win.getComputedStyle(home.$(".swatch-evacuate")).backgroundColor);
+    bars.slider = {
+      edges: { evacuate: { left: 0, right: s1 }, prepare: { left: s1, right: s2 }, alert: { left: s2, right: 100 } },
+      leftColour: firstColour(home.win.getComputedStyle(home.$(".slider-track")).backgroundImage),
+      at: {},
+    };
+    for (const hours of HOURS) {
+      setValue(slider, hours);
+      bars.slider.at[hours] = parseFloat(home.$(".slider-visual").style.getPropertyValue("--slider-progress"));
+    }
+    // The home page's calculator demo uses the same bar: its bands follow the CSS order, whatever the HTML says.
+    const demoGauge = home.$(".demo-gauge");
+    const demoBands = ["evacuate", "prepare", "alert"].map((id) => span(demoGauge.querySelector(".stage-ribbon--" + id), demoGauge));
+    for (let i = 1; i < demoBands.length; i += 1) if (!(demoBands[i].left > demoBands[i - 1].left)) problems.push("home demo: the bands are not in the order Under 6 h, 6–24 h, Over 24 h");
+    const demoMarker = parseFloat(home.win.getComputedStyle(demoGauge.querySelector(".result-gauge-marker")).getPropertyValue("--gauge-position"));
+    if (!(demoMarker > demoBands[1].left && demoMarker < demoBands[1].right)) problems.push("home demo: the still 18 h marker at " + demoMarker + "% is not over 6–24 h");
+    noErrors(home, "home");
+
+    // The calculator's gauge.
+    const page = await openPage("calculator.html");
+    const calc = calculator(page);
+    calc.submit(120, 30);
+    const gauge = page.$(".result-gauge");
+    bars.gauge = { edges: {}, leftColour: firstColour(page.win.getComputedStyle(page.$(".result-gauge .stage-ribbon > :first-child")).backgroundColor), at: {} };
+    ["evacuate", "prepare", "alert"].forEach((id) => { bars.gauge.edges[id] = span(page.$(".result-gauge .stage-ribbon--" + id), gauge); });
+    for (const hours of HOURS) {
+      calc.submit(hours * 10, 10);
+      bars.gauge.at[hours] = parseFloat(page.$("#result-marker").style.getPropertyValue("--gauge-position"));
+    }
+    // Reading order matches what is seen.
+    const ribbonText = page.$$(".result-gauge .stage-ribbon span, #estimate-prompt .stage-ribbon span").map(text);
+    assert.deepEqual(ribbonText, ["Under 6 h", "6–24 h", "Over 24 h", "Under 6 h", "6–24 h", "Over 24 h"], "the ribbons' text runs in the order it is shown");
+
+    for (const [name, bar] of Object.entries(bars)) {
+      // Under 6 h, in the Evacuate now colour, is the band at the left end.
+      if (Math.abs(bar.edges.evacuate.left) > 0.5) problems.push(name + ": Under 6 h starts at " + bar.edges.evacuate.left.toFixed(1) + "%, not the left end");
+      if (bar.leftColour !== evacuateColour) problems.push(name + ": the left end is " + bar.leftColour + ", not the Evacuate now colour " + evacuateColour);
+      // Each answer lands in its own band, and 6 h and 24 h fall on the edges between them.
+      for (const hours of HOURS) {
+        const band = bandAt(bar.at[hours], bar.edges);
+        if (band !== stageFor(hours)) problems.push(name + ": " + hours + " h at " + bar.at[hours].toFixed(1) + "% is over " + band);
+      }
+      if (Math.abs(bar.at[6] - bar.edges.prepare.left) > 0.5) problems.push(name + ": 6 h is at " + bar.at[6].toFixed(1) + "%, the edge is at " + bar.edges.prepare.left.toFixed(1) + "%");
+      if (Math.abs(bar.at[24] - bar.edges.alert.left) > 0.5) problems.push(name + ": 24 h is at " + bar.at[24].toFixed(1) + "%, the edge is at " + bar.edges.alert.left.toFixed(1) + "%");
+      if (!(bar.at[3] < bar.at[30])) problems.push(name + ": 3 h is not left of 30 h");
+    }
+    // A short time and a long one are on the same side of centre on both bars. (30 h is not:
+    // the slider runs to 72 h in equal steps, so 30 h is left of its centre but right of the gauge's.)
+    for (const [hours, side] of [[3, "left"], [72, "right"]]) {
+      const sides = Object.entries(bars).map(([name, bar]) => name + " " + (bar.at[hours] < 50 ? "left" : "right"));
+      if (sides.some((entry) => !entry.endsWith(side))) problems.push(hours + " h: " + sides.join(", ") + ", not both " + side);
+    }
+    assert.none(problems);
+    noErrors(page);
+  });
+
   test("calculator: errors wait until a box is left, and the live answer is not saved until committed", async () => {
     const page = await openPage("calculator.html");
     const calc = calculator(page);
@@ -677,7 +955,7 @@
     assert.equal(calc.error(), null, "no error for a missing second number");
     setValue(calc.distance, "0");
     setValue(calc.speed, "30");
-    assert.match(calc.error(), /^Enter a distance/, "a left box with a wrong number shows its error");
+    assert.match(calc.error(), /^Enter a storm centre to coast distance/, "a left box with a wrong number shows its error");
     setValue(calc.distance, "60");
     assert.equal(calc.error(), null, "the error clears when fixed");
     assert.ok(calc.shown(), "the live answer shows");
@@ -784,7 +1062,7 @@
     assert.equal(calc.stage(), "alert");
     assert.ok(calc.history().length <= 5, "history stays at five or fewer");
     const saved = stored(KEYS.calculator);
-    assert.ok(Array.isArray(saved) && saved.every((item) => item.distance > 0 && item.distance <= 5000 && item.speed > 0 && item.speed <= 100), "only valid estimates are stored");
+    assert.ok(Array.isArray(saved) && saved.every((item) => item.distance >= 0.1 && item.distance <= 5000 && item.speed >= 1 && item.speed <= 100), "only valid estimates are stored");
     noErrors(page);
   }, { timeout: 60000 });
 
@@ -845,6 +1123,39 @@
       if (total() !== expected) problems.push(values.join(" × ") + " shows " + total() + " instead of " + expected);
     });
     assert.none(problems);
+    noErrors(page);
+  });
+
+  test("prepare: a wrong water value names its box and what it accepts, one box at a time", async () => {
+    const page = await openPage("prepare.html");
+    const fields = ["household-size", "supply-days", "water-per-person"].map((id) => page.$("#" + id));
+    const message = page.$("#water-formula");
+    const formula = text(message);
+    assert.ok(message.closest("[aria-live]"), "the message sits in the live region");
+    const messages = [
+      "People in household: enter a whole number from 1 to 30.",
+      "Days in your plan: enter a whole number from 1 to 14.",
+      "Litres per person / day: enter a number from 0.5 to 20, in steps of 0.5.",
+    ];
+    const invalid = () => fields.filter((field) => field.getAttribute("aria-invalid") === "true");
+    // [values, the box that should be named]: the first wrong box wins when several are wrong.
+    const cases = [[[0, 3, 3], 0], [["", 3, 3], 0], [[2.5, 3, 3], 0], [[4, 15, 3], 1], [[4, "", 3], 1], [[4, 3, 2.3], 2], [[4, 3, -1], 2], [[4, 3, ""], 2],
+      [[31, 0, 25], 0], [[4, 0, 25], 1], [["", "", ""], 0]];
+    const problems = [];
+    cases.forEach(([values, wrong]) => {
+      values.forEach((value, i) => setValue(fields[i], value));
+      const label = values.join(" × ");
+      if (text(page.$("#water-total")) !== "Check the values") problems.push(label + ": the total is not flagged");
+      if (text(message) !== messages[wrong]) problems.push(label + ": says \"" + text(message) + "\"");
+      if (invalid().length !== 1 || invalid()[0] !== fields[wrong]) problems.push(label + ": marks " + invalid().map((field) => field.id).join(", ") + " as wrong");
+      if (fields[wrong].getAttribute("aria-describedby") !== "water-formula") problems.push(label + ": the wrong box does not point at the message");
+    });
+    assert.none(problems);
+    [4, 3, 3].forEach((value, i) => setValue(fields[i], value));
+    assert.equal(text(page.$("#water-total")), "36 litres");
+    assert.equal(text(message), formula, "the formula comes back once the values are fine");
+    assert.equal(invalid().length, 0, "no box is left marked as wrong");
+    assert.ok(fields.every((field) => !field.hasAttribute("aria-describedby")), "no box still points at the message");
     noErrors(page);
   });
 
@@ -944,6 +1255,65 @@
     await sleep(400);
     assert.equal(localStorage.getItem(KEYS.plan), null, "nothing re-saves after clearing");
     noErrors(page);
+  });
+
+  // Makes the page behave as if the visitor's clock were in Hawaii (UTC−10): local date getters
+  // and any date formatting without its own timeZone use that zone. A "2026-11-01" read as UTC
+  // midnight and printed in local time would then come out as 31 October.
+  const BEHIND_UTC =
+    "<script>(function(){var Z='Pacific/Honolulu',D=Intl.DateTimeFormat,P=Date.prototype,o=function(x){x=Object.assign({},x);if(!x.timeZone)x.timeZone=Z;return x;};" +
+    "function F(l,x){return new D(l,o(x));}F.prototype=D.prototype;F.supportedLocalesOf=D.supportedLocalesOf;Intl.DateTimeFormat=F;" +
+    "['toLocaleDateString','toLocaleString'].forEach(function(n){var f=P[n];P[n]=function(l,x){return f.call(this,l,o(x));};});" +
+    "['FullYear','Month','Date','Day'].forEach(function(n){P['get'+n]=function(){return new Date(this.getTime()-36e6)['getUTC'+n]();};});})();<\/script>";
+
+  test("prepare: the printable plan writes task dates as “13 November 2026”, in any time zone", async () => {
+    for (const inject of ["", BEHIND_UTC]) {
+      const zone = inject ? "behind UTC" : "local time";
+      localStorage.removeItem(KEYS.plan);
+      const page = await openPage("prepare.html", { inject });
+      const plan = planPage(page);
+      const dates = ["2026-11-13", "2026-11-01", "2027-01-01", "2028-02-29"];
+      const printed = ["13 November 2026", "1 November 2026", "1 January 2027", "29 February 2028"];
+      while (plan.rows().length < dates.length) page.$("#add-plan-task").click();
+      dates.forEach((date, i) => setValue(plan.rows()[i].querySelectorAll("input")[1], date, ["input", "change"]));
+      setValue(plan.rows()[1].querySelectorAll("input")[2], "Ko Min");
+      page.$("#family-plan-form").requestSubmit();
+      const details = page.$$("#saved-plan-tasks li span").map(text);
+      assert.deepEqual(details, [printed[0], printed[1] + " · Ko Min", printed[2], printed[3]], zone + ": printed dates");
+      assert.deepEqual(stored(KEYS.plan).tasks.map((task) => task.when), dates, zone + ": the save keeps ISO dates");
+      assert.deepEqual(plan.rows().map((row) => row.querySelectorAll("input")[1].value), dates, zone + ": the date boxes keep ISO dates");
+
+      let blob = null;
+      page.win.URL.createObjectURL = (value) => { blob = value; return "blob:test"; };
+      page.win.URL.revokeObjectURL = () => {};
+      page.win.HTMLAnchorElement.prototype.click = function () {};
+      page.$("#download-plan").click();
+      const body = await blob.text();
+      assert.match(body, /2\. Confirm a safe place and two routes \| When: 1 November 2026 \| Responsible: Ko Min/, zone + ": the text copy uses the same dates");
+
+      // A cleared date goes back to the placeholder, never "Invalid Date".
+      setValue(plan.rows()[0].querySelectorAll("input")[1], "", ["input", "change"]);
+      page.$("#family-plan-form").requestSubmit();
+      assert.equal(text(page.$("#saved-plan-tasks li span")), "Date and lead not set", zone + ": a cleared date");
+      assert.none(page.$$("#saved-plan-tasks li span").map(text).filter((value) => /Invalid/.test(value)), zone + ": no Invalid Date");
+      noErrors(page, zone);
+    }
+  });
+
+  test("prepare: the trusted contact box explains itself in a hint, and its placeholder fits at 320 and 375 px", async () => {
+    for (const width of [320, 375]) {
+      const page = await openPage("prepare.html", { width, height: 800 });
+      const input = page.$("#plan-contact");
+      const hint = page.$("#" + input.getAttribute("aria-describedby"));
+      assert.ok(hint && isShown(hint), width + " px: the hint is linked and visible");
+      assert.equal(text(hint), "Their name and the contact method you have agreed with them.");
+      assert.ok(input.placeholder, "there is a short example");
+      // A text box only scrolls sideways when its text is too long, so type the placeholder in to measure it.
+      input.value = input.placeholder;
+      assert.ok(input.scrollWidth <= input.clientWidth, width + " px: the placeholder \"" + input.placeholder + "\" needs " + input.scrollWidth + " px but the box is " + input.clientWidth + " px");
+      input.value = "";
+      noErrors(page, width + " px");
+    }
   });
 
   test("prepare: plan text is shown as text, never as HTML", async () => {
@@ -1079,17 +1449,43 @@
     noErrors(page);
   });
 
-  test("sources: copy buttons copy the citation, have distinct labels, and report failure", async () => {
+  test("sources: each copy button is named after its source, the way the citation markers name it", async () => {
+    // A marker on another page says "Source 3: Fritz et al. (2009)", so the matching button
+    // should say "Copy citation for source 3: Fritz et al. (2009)".
+    const markers = new Map();
+    for (const path of PAGES) {
+      (await getDoc(path)).querySelectorAll("sup.cite a").forEach((link) => {
+        markers.set(link.getAttribute("href").split("#")[1], link.getAttribute("aria-label").replace(/^Source/, "source"));
+      });
+    }
     const page = await openPage("sources.html");
     const buttons = page.$$("[data-copy-citation]");
-    const labels = buttons.map((b) => b.getAttribute("aria-label"));
-    assert.equal(new Set(labels).size, labels.length, "every copy button has its own label (duplicates: " + labels.filter((l, i) => labels.indexOf(l) !== i).join(" | ") + ")");
+    const names = buttons.map((b) => b.getAttribute("aria-label"));
+    const problems = [];
+    buttons.forEach((button, i) => {
+      const reference = button.closest("[data-reference]");
+      const start = text(button) + " for source " + Number(reference.dataset.num) + ": ";
+      if (!names[i] || !names[i].startsWith(start)) problems.push(reference.id + ': "' + names[i] + '" does not start with "' + start + '"');
+      else if (names[i].length === start.length) problems.push(reference.id + ": the name does not say which source");
+      if (markers.has(reference.id) && names[i] !== "Copy citation for " + markers.get(reference.id)) problems.push(reference.id + ': "' + names[i] + '" does not match the marker "' + markers.get(reference.id) + '"');
+    });
+    assert.equal(buttons.length, page.$$("[data-reference]").length, "every reference has a copy button");
+    assert.equal(new Set(names).size, names.length, "every copy button has its own name (duplicates: " + names.filter((n, i) => names.indexOf(n) !== i).join(" | ") + ")");
+    assert.none(problems);
+    noErrors(page);
+  });
+
+  test("sources: copy buttons copy the citation, keep their name in step with their words, and report failure", async () => {
+    const page = await openPage("sources.html");
+    const buttons = page.$$("[data-copy-citation]");
+    const name = buttons[2].getAttribute("aria-label");
     let copied = null;
     Object.defineProperty(page.win.navigator, "clipboard", { configurable: true, value: { writeText: (value) => { copied = value; return Promise.resolve(); } } });
     buttons[2].click();
     await sleep(50);
     assert.equal(copied, text(buttons[2].closest("li").querySelector(".reference-citation")), "the citation text is copied");
     assert.equal(text(buttons[2]), "Copied");
+    assert.equal(buttons[2].getAttribute("aria-label"), name.replace(/^Copy citation/, "Copied"), "the name starts with the words shown and still names the source");
     assert.equal(text(page.$("#copy-status")), "Citation copied.");
     Object.defineProperty(page.win.navigator, "clipboard", { configurable: true, value: { writeText: () => Promise.reject(new Error("denied")) } });
     page.doc.execCommand = () => false;
@@ -1097,34 +1493,38 @@
     await sleep(50);
     assert.match(text(page.$("#copy-status")), /^Copy is unavailable/);
     assert.equal(text(buttons[3]), "Copy citation", "the label is not changed after a failure");
+    assert.match(buttons[3].getAttribute("aria-label"), /^Copy citation for source 4: /, "nor is the name");
     assert.equal(page.doc.activeElement, buttons[3], "focus stays on the button");
+    await sleep(1850);
+    assert.equal(text(buttons[2]), "Copy citation", "the words go back after a moment");
+    assert.equal(buttons[2].getAttribute("aria-label"), name, "and so does the name");
     noErrors(page);
   });
 
   test("sources: following a marker shows the entry even if it was filtered out, and offers a way back", async () => {
     let page = await openPage("cyclones.html", { real: true });
-    page.$('sup.cite a[href="sources.html#ref-16"]').click();
+    page.$('sup.cite a[href="sources.html#ref-18"]').click();
     page = await nextLoad(page);
-    assert.match(page.win.location.href, /sources\.html#ref-16$/);
-    const back = page.$("#ref-16 .cite-back");
+    assert.match(page.win.location.href, /sources\.html#ref-18$/);
+    const back = page.$("#ref-18 .cite-back");
     assert.ok(back, "a back link is added to the entry");
     assert.equal(text(back), "← Back to Cyclones");
     assert.equal(page.$$(".cite-back").length, 1, "only one back link");
 
     setValue(page.$("#reference-filter"), "warnings", ["change"]);
-    assert.ok(page.$("#ref-18").hidden, "ref-18 is filtered out");
-    page.win.location.hash = "#ref-18";
+    assert.ok(page.$("#ref-20").hidden, "ref-20 is filtered out");
+    page.win.location.hash = "#ref-20";
     await sleep(100);
     assert.equal(page.$("#reference-filter").value, "all", "the filter resets");
-    assert.ok(!page.$("#ref-18").hidden, "the entry is shown");
+    assert.ok(!page.$("#ref-20").hidden, "the entry is shown");
     assert.equal(page.$$(".cite-back").length, 1, "still one back link");
-    assert.ok(page.$("#ref-18 .cite-back"), "the back link moves to the new entry");
+    assert.ok(page.$("#ref-20 .cite-back"), "the back link moves to the new entry");
     noErrors(page);
 
     page = await openPage("cyclones.html", { real: true });
-    page.$('sup.cite a[href="sources.html#ref-16"]').click();
+    page.$('sup.cite a[href="sources.html#ref-18"]').click();
     page = await nextLoad(page);
-    page.$("#ref-16 .cite-back").click();
+    page.$("#ref-18 .cite-back").click();
     page = await nextLoad(page);
     assert.match(page.win.location.pathname, /cyclones\.html$/, "the back link returns to the Cyclones page");
     noErrors(page);
@@ -1693,6 +2093,31 @@
       const link = page.$("#account-link").getBoundingClientRect();
       if (link.top >= brand.bottom) problems.push(width + " px: the account link sits below the logo");
       overflow(page).forEach((problem) => problems.push(width + " px: " + problem));
+    }
+    assert.none(problems);
+  }, { timeout: 60000 });
+
+  test("account: on a phone the forms come straight after the heading, before the note on how accounts work, and wide screens keep the note beside the heading", async () => {
+    const member = { id: "u-order", name: "Order", username: "order_test", email: "", salt: "", hash: "", role: "member", joined: Date.UTC(2026, 0, 1) };
+    const problems = [];
+    for (const state of ["logged out", "logged in"]) {
+      if (state === "logged in") signedIn(member);
+      const first = state === "logged in" ? "#signed-in-card" : "#log-in";
+      for (const width of WIDTHS) {
+        const page = await openPage("account.html", { width, inject: REDUCED_MOTION });
+        const label = width + " px, " + state + ": ";
+        const box = (selector) => page.$(selector).getBoundingClientRect();
+        const heading = box("h1");
+        const forms = box(first);
+        const note = box(".demo-note");
+        if (!(page.$(first).compareDocumentPosition(page.$(".demo-note")) & page.win.Node.DOCUMENT_POSITION_FOLLOWING)) problems.push(label + "the note comes before the forms in the page");
+        if (width < 896) {
+          if (!(heading.bottom <= forms.top && forms.bottom <= note.top)) problems.push(label + "the forms are not between the heading and the note");
+        } else {
+          if (!(note.left >= heading.right && note.bottom <= forms.top)) problems.push(label + "the note is not beside the heading and above the forms");
+          if (Math.abs(box(".account-section").width - (note.right - heading.left)) > 1) problems.push(label + "the forms no longer span both columns");
+        }
+      }
     }
     assert.none(problems);
   }, { timeout: 60000 });

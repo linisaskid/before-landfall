@@ -48,8 +48,9 @@ async function waitForServer(url) {
 }
 
 // Chrome writes the port it picked to DevToolsActivePort in its profile folder.
+// A cold start on a busy GitHub runner can take longer than 10 s (one main run failed that way), so allow 30 s.
 async function waitForDevToolsPort(profile, chrome) {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
     if (hasExited(chrome)) throw new Error("Chrome exited (" + (chrome.signalCode || "code " + chrome.exitCode) + ") before it started");
     try {
       const [port] = (await readFile(join(profile, "DevToolsActivePort"), "utf8")).split("\n");
@@ -57,7 +58,7 @@ async function waitForDevToolsPort(profile, chrome) {
     } catch (error) {}
     await sleep(100);
   }
-  throw new Error("Chrome did not open its DevTools port within 10 s");
+  throw new Error("Chrome did not open its DevTools port within 30 s");
 }
 
 // A minimal DevTools Protocol client: send a command, get its result back.

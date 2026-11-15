@@ -57,6 +57,7 @@
     })();
   </script>
   <link rel="icon" href="images/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="preload" href="fonts/fall-sans-text-regular.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/fall-sans-display-bold.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
@@ -126,13 +127,33 @@
         <p>Use figures from a current official forecast. If you’re learning how the formula works, start with one of the examples.</p>
       </div>
 
+      <!-- Shown by script.js. Nothing is requested until the visitor presses "Check now". -->
+      <section class="live-storm" id="live-storm" data-smooth data-storm="idle" aria-labelledby="live-storm-title" hidden>
+        <div class="live-storm-text">
+          <p class="eyebrow" id="live-storm-kicker">Live check</p>
+          <h3 id="live-storm-title">Is a storm heading for the delta right now?</h3>
+          <p class="live-storm-status" id="live-storm-status" role="status">Look up the latest storm positions and this page works out the two numbers for you.</p>
+          <p class="live-storm-detail" id="live-storm-detail" hidden></p>
+        </div>
+        <div class="live-storm-actions">
+          <button class="button button--small" id="live-storm-check" type="button">Check now</button>
+          <button class="button button--small" id="live-storm-use" type="button" hidden>Use these numbers <span aria-hidden="true">→</span></button>
+          <div class="live-storm-steps" id="live-storm-steps" role="group" aria-label="Move through the Nargis replay" hidden>
+            <button class="button button--small button--quiet" id="live-storm-earlier" type="button">← 6 h earlier</button>
+            <button class="button button--small button--quiet" id="live-storm-later" type="button">6 h later →</button>
+          </div>
+          <button class="text-button" id="live-storm-replay" type="button">Replay Cyclone Nargis, 2008</button>
+        </div>
+        <p class="live-storm-source">Live positions come from GDACS, the UN and EU disaster alert system.<sup class="cite"><a href="sources.html#ref-05" title="Global Disaster Alert and Coordination System (n.d.)" aria-label="Source 5: Global Disaster Alert and Coordination System (n.d.)">05</a></sup> “Check now” asks gdacs.org for storm data; nothing about you or your estimates is sent. The replay uses NOAA’s recorded track of Nargis.<sup class="cite"><a href="sources.html#ref-04" title="Gahtan et al. (2024)" aria-label="Source 4: Gahtan et al. (2024)">04</a></sup> The distance is a straight line to the south-west delta coast, so treat it as a first guess.</p>
+      </section>
+
       <div class="calculator-workbench">
         <section class="calculator-card" data-smooth aria-label="Landfall estimate inputs">
           <form id="landfall-form" class="form-stack" novalidate>
             <div class="calculator-inputs">
               <div class="form-field calculator-field">
                 <label for="storm-distance">Storm centre to coast</label>
-                <div class="input-with-unit"><input id="storm-distance" name="distance" type="number" min="1" max="5000" step="any" inputmode="decimal" placeholder="e.g. 600" autocomplete="off" required aria-describedby="distance-help"><span>km</span></div>
+                <div class="input-with-unit"><input id="storm-distance" name="distance" type="number" min="0.1" max="5000" step="any" inputmode="decimal" placeholder="e.g. 600" autocomplete="off" required aria-describedby="distance-help"><span>km</span></div>
                 <small id="distance-help">Measure along the forecast path, not straight across the map.</small>
               </div>
               <div class="form-field calculator-field">
@@ -161,13 +182,13 @@
             <div class="estimate-placeholder-equation"><span>km</span><b aria-hidden="true">÷</b><span>km/h</span></div>
             <h3>See how the time changes.</h3>
             <p>Type two numbers or pick an example, and the result updates as you go. It is a classroom estimate, not a forecast.</p>
-            <div class="stage-ribbon" role="group" aria-label="Example learning bands"><span class="stage-ribbon--alert">Over 24 h</span><span class="stage-ribbon--prepare">6–24 h</span><span class="stage-ribbon--evacuate">Under 6 h</span></div>
+            <div class="stage-ribbon" role="group" aria-label="Example learning bands"><span class="stage-ribbon--evacuate">Under 6 h</span><span class="stage-ribbon--prepare">6–24 h</span><span class="stage-ribbon--alert">Over 24 h</span></div>
           </div>
           <section class="result-card" id="calculator-result" data-stage="prepare" aria-labelledby="result-title" hidden>
             <h2 id="result-title">Time until landfall</h2>
             <p class="result-number"><roll-text class="result-hours" id="result-hours">—</roll-text><span>hours</span></p>
             <div class="result-gauge" aria-hidden="true">
-              <div class="stage-ribbon"><span class="stage-ribbon--alert">Over 24 h</span><span class="stage-ribbon--prepare">6–24 h</span><span class="stage-ribbon--evacuate">Under 6 h</span></div>
+              <div class="stage-ribbon"><span class="stage-ribbon--evacuate">Under 6 h</span><span class="stage-ribbon--prepare">6–24 h</span><span class="stage-ribbon--alert">Over 24 h</span></div>
               <span class="result-gauge-marker" id="result-marker"></span>
             </div>
             <p class="result-arrival" id="result-arrival"></p>
@@ -183,7 +204,7 @@
       </aside>
     </section>
 
-    <section class="block container photo-section" aria-labelledby="why-time-title"><div class="why-intro" data-reveal><h2 id="why-time-title">Why hours matter</h2><p>When Nargis was photographed on 2 May 2008, it was only hours from the delta. A few hours is the difference between leaving and being caught in the surge.</p></div><div class="photo-grid"><figure class="photo" data-reveal><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Nargis_2008-05-02_0645Z.jpg?width=1280" srcset="https://commons.wikimedia.org/wiki/Special:FilePath/Nargis_2008-05-02_0645Z.jpg?width=960 960w, https://commons.wikimedia.org/wiki/Special:FilePath/Nargis_2008-05-02_0645Z.jpg?width=1280 1280w, https://commons.wikimedia.org/wiki/Special:FilePath/Nargis_2008-05-02_0645Z.jpg?width=1920 1920w" sizes="(min-width: 40rem) 28rem, 100vw" alt="Satellite view of Cyclone Nargis as a large white spiral of cloud over the Bay of Bengal, just off the coast of Myanmar, on 2 May 2008." width="1280" height="1646" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('figure').classList.add('is-missing')"><figcaption><span class="photo-title">Nargis a few hours before landfall, 2 May 2008<sup class="cite"><a href="sources.html#ref-31" title="Image: NASA / MODIS Rapid Response Team (2008)" aria-label="Source 31: Image: NASA / MODIS Rapid Response Team (2008)">31</a></sup></span></figcaption></figure></div></section>
+    <section class="block container photo-section" aria-labelledby="why-time-title"><div class="why-intro" data-reveal><h2 id="why-time-title">Why hours matter</h2><p>When Nargis was photographed on 2 May 2008, it was only hours from the delta. A few hours is the difference between leaving and being caught in the surge.</p></div><div class="photo-grid"><figure class="photo" data-reveal><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Nargis_2008-05-02_0645Z.jpg?width=1280" srcset="https://commons.wikimedia.org/wiki/Special:FilePath/Nargis_2008-05-02_0645Z.jpg?width=960 960w, https://commons.wikimedia.org/wiki/Special:FilePath/Nargis_2008-05-02_0645Z.jpg?width=1280 1280w, https://commons.wikimedia.org/wiki/Special:FilePath/Nargis_2008-05-02_0645Z.jpg?width=1920 1920w" sizes="(min-width: 40rem) 28rem, 100vw" alt="Satellite view of Cyclone Nargis as a large white spiral of cloud over the Bay of Bengal, just off the coast of Myanmar, on 2 May 2008." width="1280" height="1646" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('figure').classList.add('is-missing')"><figcaption><span class="photo-title">Nargis a few hours before landfall, 2 May 2008<sup class="cite"><a href="sources.html#ref-33" title="Image: NASA / MODIS Rapid Response Team (2008)" aria-label="Source 33: Image: NASA / MODIS Rapid Response Team (2008)">33</a></sup></span></figcaption></figure></div></section>
 
     <section class="block container method-section" aria-labelledby="method-title">
       <div class="section-heading section-heading--numbered">
@@ -218,7 +239,7 @@
           <span class="visually-hidden">Before Landfall</span>
         </a>
         <div class="footer-meta">
-          <p class="footer-copy">© 2026 Before Landfall · <a href="sources.html">Image credits</a></p>
+          <p class="footer-copy">© 2026 Before Landfall · <a href="sources.html#credits-title">Image credits</a></p>
           <div class="footer-settings">
             <fieldset class="theme-switch" id="theme-switch" hidden>
               <legend class="visually-hidden">Colour theme</legend>

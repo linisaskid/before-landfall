@@ -50,16 +50,17 @@
 
   const stageForHours = (hours) => STAGES.find((stage) => stage.test(hours));
 
-  // Where an answer sits on the Over 24 h | 6–24 h | Under 6 h bar (the calculator's
-  // gauge, and its demo on the home page). The bar runs from far away (left) to close
-  // (right), and its three bands are 1 : 1.2 : 1 wide.
+  // Where an answer sits on the Under 6 h | 6–24 h | Over 24 h bar (the calculator's
+  // gauge, and its demo on the home page). Like the home page slider, the bar runs from
+  // close (left) to far away (right), so fewer hours sit further left. Its three bands
+  // are 1 : 1.2 : 1 wide, and 6 h and 24 h fall exactly on the edges between them.
   function gaugePosition(hours) {
-    const alertEnd = 100 / 3.2;
+    const evacuateEnd = 100 / 3.2;
     const prepareEnd = (100 * 2.2) / 3.2;
     let position;
-    if (hours > ALERT_ABOVE) position = alertEnd * (1 - Math.min((hours - ALERT_ABOVE) / 48, 1));
-    else if (hours >= EVACUATE_BELOW) position = alertEnd + ((ALERT_ABOVE - hours) / (ALERT_ABOVE - EVACUATE_BELOW)) * (prepareEnd - alertEnd);
-    else position = prepareEnd + ((EVACUATE_BELOW - hours) / EVACUATE_BELOW) * (100 - prepareEnd);
+    if (hours < EVACUATE_BELOW) position = (Math.max(hours, 0) / EVACUATE_BELOW) * evacuateEnd;
+    else if (hours <= ALERT_ABOVE) position = evacuateEnd + ((hours - EVACUATE_BELOW) / (ALERT_ABOVE - EVACUATE_BELOW)) * (prepareEnd - evacuateEnd);
+    else position = prepareEnd + Math.min((hours - ALERT_ABOVE) / 48, 1) * (100 - prepareEnd);
     return Math.min(Math.max(position, 3), 97);
   }
 
@@ -980,9 +981,19 @@
 
     const STORAGE_KEY = "beforeLandfall.calculatorHistory.v1";
     const MAX_SAVED = 5;
-    // The upper limits come from the inputs' max attributes, so the HTML is the one place to change them.
+    // The limits come from the inputs' min and max attributes, so the HTML is the one place to change
+    // them, and the script never accepts a number the browser would call out of range (or the reverse).
+    const MIN_DISTANCE = Number(distanceInput.min) || 0.1;
     const MAX_DISTANCE = Number(distanceInput.max) || 5000;
+    // Cyclones do stall, so the slowest speed is a crawl of 1 km/h (the live storm check
+    // hands over nothing slower).
+    const MIN_SPEED = Number(speedInput.min) || 1;
     const MAX_SPEED = Number(speedInput.max) || 100;
+    // One message for every wrong or missing number in a box: it names the box and the numbers it takes.
+    const DISTANCE_MESSAGE = "Enter a storm centre to coast distance from " + MIN_DISTANCE.toLocaleString("en-US") +
+                             " to " + MAX_DISTANCE.toLocaleString("en-US") + " km.";
+    const SPEED_MESSAGE = "Enter a forward speed from " + MIN_SPEED.toLocaleString("en-US") +
+                          " to " + MAX_SPEED.toLocaleString("en-US") + " km/h.";
     const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
     const exampleButtons = Array.from(document.querySelectorAll("[data-example-distance][data-example-speed]"));
     const touched = new Set();
@@ -992,8 +1003,8 @@
 
     setRollTransition(resultHours);
 
-    const isValidDistance = (value) => Number.isFinite(value) && value > 0 && value <= MAX_DISTANCE;
-    const isValidSpeed = (value) => Number.isFinite(value) && value > 0 && value <= MAX_SPEED;
+    const isValidDistance = (value) => Number.isFinite(value) && value >= MIN_DISTANCE && value <= MAX_DISTANCE;
+    const isValidSpeed = (value) => Number.isFinite(value) && value >= MIN_SPEED && value <= MAX_SPEED;
     const formatHours = (hours) => hours.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
     let savedText = null;
@@ -1057,15 +1068,14 @@
     }
 
     // Returns null when the numbers are fine, otherwise what is wrong and which box to point at.
+    // An empty box gets the same message as a wrong number in it; incomplete only means the
+    // message can wait while the visitor is still typing.
     function findProblem(values) {
-      if (!values.hasDistance || !values.hasSpeed) {
-        return { message: "Enter both the distance and forward speed.", field: values.hasDistance ? speedInput : distanceInput, incomplete: true };
+      if (!values.hasDistance || !isValidDistance(values.distance)) {
+        return { message: DISTANCE_MESSAGE, field: distanceInput, incomplete: !values.hasDistance };
       }
-      if (!isValidDistance(values.distance)) {
-        return { message: "Enter a distance greater than 0 and no more than " + MAX_DISTANCE.toLocaleString("en-US") + " km.", field: distanceInput };
-      }
-      if (!isValidSpeed(values.speed)) {
-        return { message: "Enter a forward speed greater than 0 and no more than " + MAX_SPEED.toLocaleString("en-US") + " km/h.", field: speedInput };
+      if (!values.hasSpeed || !isValidSpeed(values.speed)) {
+        return { message: SPEED_MESSAGE, field: speedInput, incomplete: !values.hasSpeed };
       }
       return null;
     }
@@ -1093,12 +1103,14 @@
     }
 
     // Shows the answer and returns { hours, arrival } for saving, or null if it cannot be shown.
-    function showResult(distance, speed) {
+    // replayFrom is only given by the Nargis replay: the moment in 2008 the numbers belong to,
+    // so the arrival time is counted from then and not from today.
+    function showResult(distance, speed, replayFrom) {
       const exactHours = distance / speed;
       // Round once and use the rounded figure everywhere, so the number on screen and its stage
       // always agree (5.999 h shows as "6 hours", so it must not be labelled "under 6 h").
       const hours = Math.max(Math.round(exactHours * 100) / 100, 0.01);
-      const arrival = new Date(Date.now() + exactHours * 60 * 60 * 1000);
+      const arrival = new Date((replayFrom || Date.now()) + exactHours * 60 * 60 * 1000);
       if (!Number.isFinite(arrival.getTime())) return null;
 
       const stage = stageForHours(hours);
@@ -1107,7 +1119,9 @@
 
       result.dataset.stage = stage.id;
       if (resultMarker) resultMarker.style.setProperty("--gauge-position", gaugePosition(hours) + "%");
-      resultArrival.textContent = "If the speed stays the same: " + timeFormat.format(arrival) + " (your device’s local time).";
+      resultArrival.textContent = replayFrom
+        ? "In the replay, if the speed had stayed the same: " + formatUtc(arrival) + "."
+        : "If the speed stays the same: " + timeFormat.format(arrival) + " (your device’s local time).";
       resultStage.textContent = stage.name;
       resultAdvice.textContent = stage.advice;
 
@@ -1178,7 +1192,7 @@
 
     // explicit = the person pressed the button, picked an example or reused an estimate.
     // Returns true when a valid answer is showing.
-    function update(explicit) {
+    function update(explicit, replayFrom) {
       const values = readInputs();
       const problem = findProblem(values);
       syncExamples();
@@ -1197,7 +1211,7 @@
         return false;
       }
 
-      const outcome = showResult(values.distance, values.speed);
+      const outcome = showResult(values.distance, values.speed, replayFrom);
       if (!outcome) {
         resetResultSound();
         showPrompt();
@@ -1209,7 +1223,8 @@
       soundForResult(explicit);
 
       if (explicit) {
-        saveEstimate(values.distance, values.speed, outcome);
+        // A replay is a history lesson, not one of the visitor's own estimates, so it is not saved.
+        if (!replayFrom) saveEstimate(values.distance, values.speed, outcome);
         // On a phone the answer sits below the form. Bring it into view, but only if it is off screen.
         result.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
       }
@@ -1257,6 +1272,12 @@
       });
     });
 
+    // The live storm panel (setUpLiveStorm) hands over its two numbers with this event.
+    form.addEventListener("landfall:fill", (event) => {
+      fillInputs(event.detail.distance, event.detail.speed);
+      update(true, event.detail.replayFrom);
+    });
+
     clearEstimates.addEventListener("click", () => {
       sound("sweep");
       estimates = [];
@@ -1270,6 +1291,248 @@
     });
 
     renderEstimates();
+  }
+
+  // Live storm panel: finds the two calculator numbers from real storm positions.
+  //
+  // This is the one place on the site that talks to another computer, and only when the
+  // visitor presses "Check now". It asks GDACS (the UN and EU disaster alert system) for
+  // the tropical cyclones it is tracking, keeps any that are in the Bay of Bengal or the
+  // Andaman Sea, and reads their last two reported positions. From those it works out:
+  //
+  //   distance = straight line from the storm centre to one point on the delta coast
+  //   speed    = how much closer the storm got between the two reports, per hour
+  //
+  // "Closer per hour" is used instead of the storm's own speed on purpose: a storm racing
+  // north past the delta is fast but is not arriving, and the calculator would be wrong.
+  //
+  // The Nargis replay runs the same sums on recorded positions, so the panel can be shown
+  // on a day with no storm and with no internet.
+  const GDACS_API = "https://www.gdacs.org/gdacsapi/api/";
+  // The south-west delta coast near the mouths of the Ayeyarwady, where Nargis came ashore.
+  const DELTA_COAST = { lat: 15.9, lon: 94.6 };
+  const BAY_OF_BENGAL = { south: 3, north: 24, west: 78, east: 100 };
+  const HOUR_MS = 60 * 60 * 1000;
+  const STALE_AFTER_HOURS = 36;
+  // Storm times are written the way forecasters write them, "12:00 UTC on 1 May 2008", and in
+  // British English like the Community page's dates, whatever language the device is set to.
+  const UTC_CLOCK = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" });
+  const UTC_DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  const formatUtc = (time) => UTC_CLOCK.format(time) + " UTC on " + UTC_DATE.format(time);
+
+  // Cyclone Nargis every six hours (UTC), from NOAA's IBTrACS best-track archive, v04r01.
+  const NARGIS_TRACK = [
+    ["2008-04-30T12:00Z", 14.8, 87.3],
+    ["2008-04-30T18:00Z", 15.2, 87.9],
+    ["2008-05-01T00:00Z", 15.6, 88.5],
+    ["2008-05-01T06:00Z", 16.0, 89.7],
+    ["2008-05-01T12:00Z", 16.0, 90.6],
+    ["2008-05-01T18:00Z", 15.9, 91.6],
+    ["2008-05-02T00:00Z", 15.9, 92.6],
+    ["2008-05-02T06:00Z", 16.0, 93.6],
+  ].map(([time, lat, lon]) => ({ time: Date.parse(time), lat, lon }));
+  const NARGIS_LANDFALL = Date.parse("2008-05-02T12:00Z");
+  const NARGIS_REPLAY_START = 4; // 12:00 UTC on 1 May, a day before landfall
+
+  // Great-circle distance between two { lat, lon } points, in km (the haversine formula).
+  function distanceKm(from, to) {
+    const radians = (degrees) => (degrees * Math.PI) / 180;
+    const dLat = radians(to.lat - from.lat);
+    const dLon = radians(to.lon - from.lon);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(radians(from.lat)) * Math.cos(radians(to.lat)) * Math.sin(dLon / 2) ** 2;
+    return 2 * 6371 * Math.asin(Math.sqrt(a));
+  }
+
+  // points: reported positions, oldest first. Returns where the storm is and how fast it is closing.
+  // closing is null with only one report, and zero or negative when the storm is not getting nearer.
+  function readStormTrack(points) {
+    const latest = points[points.length - 1];
+    const previous = points[points.length - 2];
+    const distance = distanceKm(latest, DELTA_COAST);
+    let closing = null;
+    if (previous && latest.time > previous.time) {
+      closing = (distanceKm(previous, DELTA_COAST) - distance) / ((latest.time - previous.time) / HOUR_MS);
+    }
+    return { time: latest.time, distance, closing };
+  }
+
+  // GDACS writes report times as "03 Nov 2026 06:00", in UTC.
+  function parseGdacsTime(text) {
+    const match = /^(\d{1,2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2})/.exec(String(text || "").trim());
+    if (!match) return NaN;
+    const month = MONTH_NAMES.findIndex((name) => name.slice(0, 3).toLowerCase() === match[2].toLowerCase());
+    if (month < 0) return NaN;
+    return Date.UTC(Number(match[3]), month, Number(match[1]), Number(match[4]), Number(match[5]));
+  }
+
+  // Every request goes through here. It refuses any address that is not the GDACS API (some
+  // addresses come from inside GDACS's own answers), sends no cookies, and gives up after 15 s.
+  async function getGdacs(url) {
+    if (!String(url).startsWith(GDACS_API)) throw new Error("Not a GDACS address");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(url, { signal: controller.signal, credentials: "omit", referrerPolicy: "no-referrer" });
+      if (!response.ok) throw new Error("GDACS answered " + response.status);
+      return await response.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // Returns the active storm nearest the delta as { name, time, distance, closing }, or null if there is none.
+  async function findLiveStorm() {
+    const list = await getGdacs(GDACS_API + "events/geteventlist/SEARCH?eventlist=TC");
+    const inBay = (Array.isArray(list && list.features) ? list.features : []).filter((feature) => {
+      const properties = feature.properties || {};
+      const [lon, lat] = (feature.geometry && feature.geometry.coordinates) || [];
+      return String(properties.iscurrent) === "true" &&
+             lat >= BAY_OF_BENGAL.south && lat <= BAY_OF_BENGAL.north &&
+             lon >= BAY_OF_BENGAL.west && lon <= BAY_OF_BENGAL.east;
+    }).slice(0, 3);
+
+    const storms = [];
+    for (const feature of inBay) {
+      const properties = feature.properties;
+      const detail = await getGdacs(GDACS_API + "events/geteventdata?eventtype=TC&eventid=" + encodeURIComponent(properties.eventid));
+      const impacts = (detail.properties && detail.properties.impacts) || [];
+      const timelineUrl = impacts[0] && impacts[0].resource && impacts[0].resource.timeline;
+      if (!timelineUrl) continue;
+      const timeline = await getGdacs(timelineUrl);
+      const items = (timeline.channel && timeline.channel.item) || [];
+      // "actual" reports are where the storm was seen; the others are the forecast.
+      const points = items
+        .filter((item) => String(item.actual).toLowerCase() === "true")
+        .map((item) => ({ time: parseGdacsTime(item.advisory_datetime), lat: Number(item.latitude), lon: Number(item.longitude) }))
+        .filter((point) => Number.isFinite(point.time) && Number.isFinite(point.lat) && Number.isFinite(point.lon))
+        .sort((a, b) => a.time - b.time);
+      if (!points.length) continue;
+      const reading = readStormTrack(points);
+      if (Date.now() - reading.time > STALE_AFTER_HOURS * HOUR_MS) continue;
+      const name = String(properties.eventname || properties.name || "A storm").replace(/-\d+$/, "");
+      storms.push(Object.assign({ name: name.charAt(0) + name.slice(1).toLowerCase() }, reading));
+    }
+    storms.sort((a, b) => a.distance - b.distance);
+    return storms[0] || null;
+  }
+
+  function setUpLiveStorm() {
+    const panel = document.getElementById("live-storm");
+    const form = document.getElementById("landfall-form");
+    const kicker = document.getElementById("live-storm-kicker");
+    const status = document.getElementById("live-storm-status");
+    const detail = document.getElementById("live-storm-detail");
+    const checkButton = document.getElementById("live-storm-check");
+    const useButton = document.getElementById("live-storm-use");
+    const replayButton = document.getElementById("live-storm-replay");
+    const steps = document.getElementById("live-storm-steps");
+    const earlier = document.getElementById("live-storm-earlier");
+    const later = document.getElementById("live-storm-later");
+    if (!panel || !form || !kicker || !status || !detail || !checkButton || !useButton || !replayButton || !steps || !earlier || !later) return;
+
+    const MAX_DISTANCE = Number(document.getElementById("storm-distance").max) || 5000;
+    const MAX_SPEED = Number(document.getElementById("storm-speed").max) || 100;
+    const clockFormat = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
+    let numbers = null;     // the { distance, speed } the "Use these numbers" button will hand over
+    let replayIndex = -1;   // which Nargis report is showing; -1 when not replaying
+    let checking = false;
+
+    function show(state, kickerText, statusText, detailText) {
+      panel.dataset.storm = state;
+      kicker.textContent = kickerText;
+      status.textContent = statusText;
+      detail.textContent = detailText || "";
+      detail.hidden = !detailText;
+      useButton.hidden = !numbers;
+    }
+
+    // Turns a storm reading into the sentence on screen, and into calculator numbers when there are any.
+    function describe(storm, replaying) {
+      // Positions are given to 0.1 of a degree (about 11 km), so finer numbers would be false precision.
+      const distance = Math.min(Math.max(Math.round(storm.distance / 10) * 10, 10), MAX_DISTANCE);
+      const speed = storm.closing === null ? null : Math.round(storm.closing);
+      const where = storm.name + " was about " + distance.toLocaleString() + " km from the delta coast at " + formatUtc(storm.time);
+      const kickerText = replaying ? "Replay, not a live storm" : "Live storm";
+      numbers = null;
+
+      if (speed === null) {
+        show("watch", kickerText, where + ".", "This is its first report, so there is no speed yet. Check again after the next report, or take the forward speed from an official forecast.");
+      } else if (speed < 1) {
+        show("watch", kickerText, where + ", and it is not moving toward the delta at the moment.", "There is no landfall time to estimate. Storms change direction, so keep following official forecasts.");
+      } else {
+        numbers = { distance, speed: Math.min(speed, MAX_SPEED), replayFrom: replaying ? storm.time : undefined };
+        const hours = Math.round(numbers.distance / numbers.speed);
+        let ending = "That is about " + hours.toLocaleString() + " hours away if nothing changes.";
+        if (replaying) {
+          const actual = Math.round((NARGIS_LANDFALL - storm.time) / HOUR_MS);
+          ending += " Nargis really came ashore about " + actual + " hours later" +
+                    (Math.abs(actual - hours) <= 1 ? ", so this estimate was close." : ": storms speed up and slow down.");
+        }
+        show("storm", kickerText, where + ", getting closer by about " + numbers.speed + " km every hour.", ending);
+      }
+    }
+
+    function showReplay() {
+      describe(Object.assign({ name: "Cyclone Nargis" }, readStormTrack(NARGIS_TRACK.slice(0, replayIndex + 1))), true);
+      earlier.disabled = replayIndex <= 1;
+      later.disabled = replayIndex >= NARGIS_TRACK.length - 1;
+    }
+
+    function setReplaying(on) {
+      replayIndex = on ? NARGIS_REPLAY_START : -1;
+      steps.hidden = !on;
+      replayButton.textContent = on ? "Leave the replay" : "Replay Cyclone Nargis, 2008";
+    }
+
+    checkButton.addEventListener("click", async () => {
+      if (checking) return;
+      checking = true;
+      checkButton.disabled = true;
+      setReplaying(false);
+      numbers = null;
+      show("checking", "Live check", "Asking GDACS for the latest storm positions…");
+      try {
+        const storm = await findLiveStorm();
+        if (replayIndex >= 0) return; // the visitor started the replay while waiting
+        if (storm) {
+          describe(Object.assign({}, storm, { name: "Cyclone " + storm.name }), false);
+        } else {
+          show("clear", "Live check", "GDACS is not tracking any cyclone in the Bay of Bengal or Andaman Sea right now.", "Checked at " + clockFormat.format(new Date()) + ". A storm can form within a few days, so check again and listen for official announcements in the cyclone seasons.");
+        }
+      } catch (error) {
+        if (replayIndex < 0) show("problem", "Live check", "The storm data could not be reached.", "You may be offline, or GDACS may be busy. Try again in a moment, or type the numbers from an official forecast below.");
+      } finally {
+        checking = false;
+        checkButton.disabled = false;
+        checkButton.textContent = "Check again";
+      }
+    });
+
+    replayButton.addEventListener("click", () => {
+      if (replayIndex >= 0) {
+        setReplaying(false);
+        numbers = null;
+        show("idle", "Live check", "Look up the latest storm positions and this page works out the two numbers for you.");
+        return;
+      }
+      setReplaying(true);
+      showReplay();
+    });
+
+    earlier.addEventListener("click", () => {
+      if (replayIndex > 1) replayIndex -= 1;
+      showReplay();
+    });
+    later.addEventListener("click", () => {
+      if (replayIndex < NARGIS_TRACK.length - 1) replayIndex += 1;
+      showReplay();
+    });
+
+    useButton.addEventListener("click", () => {
+      if (numbers) form.dispatchEvent(new CustomEvent("landfall:fill", { detail: numbers }));
+    });
+
+    panel.hidden = false;
   }
 
   // ==========================================================================
@@ -1338,13 +1601,43 @@
   function setUpWaterPlanner() {
     const inputs = ["household-size", "supply-days", "water-per-person"].map((id) => document.getElementById(id));
     const waterTotal = document.getElementById("water-total");
-    if (!inputs.every(Boolean) || !waterTotal) return;
+    const formula = document.getElementById("water-formula");
+    if (!inputs.every(Boolean) || !waterTotal || !formula) return;
+    const FORMULA_TEXT = formula.textContent;
+
+    // What a box accepts, worded from its own label and limits, e.g.
+    // "Days in your plan: enter a whole number from 1 to 14."
+    function messageFor(input) {
+      const label = input.labels && input.labels[0] ? input.labels[0].textContent.trim() : "This box";
+      const step = Number(input.step) || 1;
+      const accepts = step === 1
+        ? "a whole number from " + input.min + " to " + input.max
+        : "a number from " + input.min + " to " + input.max + ", in steps of " + input.step;
+      return label + ": enter " + accepts + ".";
+    }
+
+    // Like the calculator, only the first wrong box is named, so there is one message to read.
+    function findProblem() {
+      return inputs.find((input) => !input.value.trim() || !input.checkValidity()) || null;
+    }
 
     function updateTotal(animate) {
-      if (inputs.some((input) => !input.value.trim() || !input.checkValidity())) {
+      const problem = findProblem();
+      inputs.forEach((input) => {
+        if (input === problem) {
+          input.setAttribute("aria-invalid", "true");
+          input.setAttribute("aria-describedby", formula.id);
+        } else {
+          input.removeAttribute("aria-invalid");
+          input.removeAttribute("aria-describedby");
+        }
+      });
+      if (problem) {
         setRoll(waterTotal, "Check the values", animate);
+        formula.textContent = messageFor(problem);
         return;
       }
+      formula.textContent = FORMULA_TEXT;
       const total = inputs.reduce((product, input) => product * Number(input.value), 1);
       setRoll(waterTotal, total.toLocaleString(undefined, { maximumFractionDigits: 1 }) + (total === 1 ? " litre" : " litres"), animate);
       if (animate) sound("tick");
@@ -1388,6 +1681,20 @@
     const field = (name) => form.elements.namedItem(name);
     const limitFor = (name) => (field(name) && field(name).maxLength > 0 ? field(name).maxLength : 160);
     const safeText = (value, maxLength) => (typeof value === "string" ? value.slice(0, maxLength) : "");
+
+    // Task dates are stored as "2026-11-13" but printed as "13 November 2026", like the rest of
+    // the site. The date is built from its parts and formatted in UTC, because new Date("2026-11-13")
+    // is UTC midnight and would print as 12 November in time zones behind UTC.
+    const PLAN_DATE_FORMAT = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+    function readableDate(isoDate) {
+      const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate || "");
+      if (!parts) return "";
+      const [year, month, day] = parts.slice(1).map(Number);
+      const date = new Date(Date.UTC(year, month - 1, day));
+      // Date.UTC quietly rolls 31 February over into March, so check the day survived.
+      if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return "";
+      return PLAN_DATE_FORMAT.format(date);
+    }
 
     // Accepts tasks from storage or the editor and returns clean copies. Older saves used
     // "task" and "who" for what is now "title" and "person".
@@ -1491,7 +1798,7 @@
         const title = document.createElement("strong");
         title.textContent = task.title || "Task not named";
         const details = document.createElement("span");
-        const detailsText = [task.when, task.person].filter(Boolean);
+        const detailsText = [readableDate(task.when), task.person].filter(Boolean);
         details.textContent = detailsText.length ? detailsText.join(" · ") : "Date and lead not set";
         item.append(title, details);
         return item;
@@ -1558,7 +1865,7 @@
         "",
         "Preparation tasks:",
         ...plan.tasks.map((task, index) =>
-          (index + 1) + ". " + (task.title || "Task not named") + " | When: " + (task.when || "Not set") + " | Responsible: " + (task.person || "Not set")),
+          (index + 1) + ". " + (task.title || "Task not named") + " | When: " + (readableDate(task.when) || "Not set") + " | Responsible: " + (task.person || "Not set")),
       ];
       return lines.join("\n") + "\n";
     }
@@ -1838,6 +2145,27 @@
     }
   }
 
+  // The short "Author (year)" name that the citation markers on the other pages use, worked
+  // out from the APA reference: "Fritz, H. M., Blount, C. D., … (2009)" gives "Fritz et al. (2009)".
+  // A data-cite-note adds the word or two that tells same-author sources apart ("hazards").
+  function shortCitation(reference, citation) {
+    const match = citation.textContent.trim().match(/^(.+?)\.? \(([^)]+)\)/);
+    if (!match) return "";
+    const year = match[2].split(",")[0]; // "2011, October" → "2011"
+    const parts = match[1].split(/,\s*(?:&\s*)?/);
+    let author = parts[0];
+    if (parts.length > 1 && /^(?:[A-Z]\.\s?)*[A-Z]\.?$/.test(parts[1])) {
+      // People: "Surname, Initials" pairs. One is named, two are joined, three or more are "et al."
+      const surnames = parts.filter((part, i) => i % 2 === 0);
+      if (surnames.length === 2) author = surnames.join(" & ");
+      if (surnames.length > 2) author += " et al.";
+    } else if (match[1].includes("&")) {
+      author += " et al."; // a list of organisations
+    }
+    const note = reference.dataset.citeNote;
+    return author + " (" + year + ")" + (note ? ", " + note : "");
+  }
+
   function setUpCopyButtons() {
     const copyStatus = document.getElementById("copy-status");
 
@@ -1848,10 +2176,17 @@
 
       const label = button.textContent;
       let resetTimer = 0;
-      // Several sources share an author (three from the National Hurricane Center), so the
-      // reference number keeps each button's name distinct for screen reader users.
+      // Every button would otherwise just be "Copy citation", so its name also says which
+      // source it copies, the same way the citation markers do. The name starts with the
+      // visible words so voice control users can say what they see.
       const number = Number(reference.dataset.num);
-      button.setAttribute("aria-label", label + " " + number + ": " + citation.textContent.trim().split(".")[0]);
+      const short = shortCitation(reference, citation);
+      const source = " for source " + number + (short ? ": " + short : "");
+      const showLabel = (words) => {
+        button.textContent = words;
+        button.setAttribute("aria-label", words + source);
+      };
+      showLabel(label);
 
       button.addEventListener("click", async () => {
         const copied = await copyText(citation.textContent.trim());
@@ -1859,9 +2194,9 @@
         if (copyStatus) copyStatus.textContent = copied ? "Citation copied." : "Copy is unavailable in this browser. Select the citation text to copy it.";
         sound(copied ? "success" : "nudge");
         if (!copied) return;
-        button.textContent = "Copied";
+        showLabel("Copied");
         clearTimeout(resetTimer);
-        resetTimer = window.setTimeout(() => { button.textContent = label; }, 1800);
+        resetTimer = window.setTimeout(() => showLabel(label), 1800);
       });
     });
   }
@@ -1899,6 +2234,7 @@
   setUpStormTimeline();
   // Calculator
   setUpLandfallCalculator();
+  setUpLiveStorm();
   // Prepare
   setUpChecklist();
   setUpWaterPlanner();

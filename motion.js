@@ -348,8 +348,8 @@
   // 5. Soft bottom edge
   // Text scrolling off the bottom of the screen goes soft instead of being cut
   // by the window's edge: five stacked backdrop blurs, each stronger and lower
-  // than the last (motion.css). It fades away near the end of the page, so the
-  // footer's last row is never under it.
+  // than the last (motion.css). It switches off as soon as the footer starts to
+  // come into view, so the footer's links are never blurred.
   // ==========================================================================
 
   function initEdge() {
@@ -359,6 +359,15 @@
     for (let i = 0; i < 5; i += 1) edge.appendChild(document.createElement("i"));
     document.body.appendChild(edge);
 
+    const footer = document.querySelector(".site-footer");
+    if (footer && typeof window.IntersectionObserver === "function") {
+      new IntersectionObserver((entries) => {
+        edge.classList.toggle("is-off", entries[0].isIntersecting);
+      }).observe(footer);
+      return;
+    }
+
+    // No footer (or no IntersectionObserver): fade out near the end of the page instead.
     let frame = 0;
     function update() {
       frame = 0;
