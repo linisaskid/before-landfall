@@ -66,6 +66,102 @@
     return Array.from(problems).slice(0, 12);
   }
 
+  // Focus rings that a scrolling or clipping box, or the side of the page, cuts off. A real ring
+  // only shows while the page has keyboard focus, which a test frame (or an agent's browser) often
+  // lacks, so this copies every :focus rule onto an attribute instead, with the same specificity
+  // and in the same place, and sets the attribute on one control at a time.
+  function clippedFocusRings(page) {
+    const { win, doc } = page;
+    const MARK = "data-test-focus";
+    const FOCUSED = "[" + MARK + "]";
+    const asMarked = (selector) => selector
+      .replace(/:focus-visible/g, FOCUSED)
+      .replace(/:focus-within/g, ":is(" + FOCUSED + ", :has(" + FOCUSED + "))")
+      .replace(/:focus(?![-\w])/g, FOCUSED);
+    const copies = [];
+    const copyFocusRules = (list) => {
+      for (let i = 0; i < list.cssRules.length; i += 1) {
+        const rule = list.cssRules[i];
+        if (rule instanceof win.CSSStyleRule) {
+          if (!/:focus/.test(rule.selectorText)) continue;
+          list.insertRule(asMarked(rule.selectorText) + " { " + rule.style.cssText + " }", i + 1);
+          i += 1;
+          copies.push([list, list.cssRules[i]]);
+        } else if (rule.cssRules) {
+          copyFocusRules(rule); // inside @media and @supports
+        }
+      }
+    };
+    Array.from(doc.styleSheets).forEach(copyFocusRules);
+    // Parts that fade in as they scroll into view are judged where they finally sit.
+    doc.body.classList.remove("has-reveal");
+
+    // How far an element's ring reaches outside its box, or null if it has none.
+    const ringReach = (element) => {
+      const style = win.getComputedStyle(element);
+      if (style.outlineStyle === "none" || !parseFloat(style.outlineWidth)) return null;
+      return parseFloat(style.outlineWidth) + (parseFloat(style.outlineOffset) || 0);
+    };
+    const describe = (element) => element.tagName.toLowerCase() + (element.id ? "#" + element.id : "")
+      + (element.classList.length ? "." + Array.from(element.classList).join(".") : "")
+      + (element.getAttribute("aria-label") ? ' "' + element.getAttribute("aria-label") + '"' : "");
+    const all = Array.from(doc.querySelectorAll("body *"));
+    const resting = new Map(all.map((element) => [element, ringReach(element)]));
+    const controls = all.filter((element) => element.matches('a[href], button:not(:disabled), input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]')
+      && !element.closest("[inert]") && element.getClientRects().length && win.getComputedStyle(element).visibility !== "hidden");
+    const pageWidth = doc.documentElement.clientWidth;
+    const problems = [];
+
+    controls.forEach((control) => {
+      control.setAttribute(MARK, "");
+      // The ring can be drawn by the control, by a box round it (:has, :focus-within), by
+      // something inside it, or by a later sibling (input:focus-visible + label).
+      const owners = new Set([control]);
+      for (let box = control.parentElement; box && box !== doc.body; box = box.parentElement) owners.add(box);
+      control.querySelectorAll("*").forEach((element) => owners.add(element));
+      for (let next = control.nextElementSibling; next; next = next.nextElementSibling) {
+        owners.add(next);
+        next.querySelectorAll("*").forEach((element) => owners.add(element));
+      }
+      owners.forEach((owner) => {
+        const reach = ringReach(owner);
+        if (reach === null || reach <= 0 || reach === resting.get(owner)) return;
+        const rect = owner.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const ring = { left: rect.left - reach, right: rect.right + reach, top: rect.top - reach, bottom: rect.bottom + reach };
+        const cuts = [];
+        for (let box = owner.parentElement; box && box !== doc.documentElement; box = box.parentElement) {
+          const style = win.getComputedStyle(box);
+          const clipsX = style.overflowX !== "visible";
+          const clipsY = style.overflowY !== "visible";
+          if (!clipsX && !clipsY) continue;
+          const outer = box.getBoundingClientRect();
+          const margin = style.overflowX === "clip" || style.overflowY === "clip" ? parseFloat(style.overflowClipMargin) || 0 : 0;
+          const left = outer.left + box.clientLeft - margin;
+          const top = outer.top + box.clientTop - margin;
+          const right = outer.left + box.clientLeft + box.clientWidth + margin;
+          const bottom = outer.top + box.clientTop + box.clientHeight + margin;
+          // A control scrolled out of its box (a storm stop off to one side) is not judged.
+          if ((clipsX && (rect.left < left - 0.5 || rect.right > right + 0.5)) || (clipsY && (rect.top < top - 0.5 || rect.bottom > bottom + 0.5))) return;
+          const sides = [];
+          if (clipsX && ring.left < left - 0.5) sides.push("left");
+          if (clipsX && ring.right > right + 0.5) sides.push("right");
+          if (clipsY && ring.top < top - 0.5) sides.push("top");
+          if (clipsY && ring.bottom > bottom + 0.5) sides.push("bottom");
+          if (sides.length) cuts.push(describe(box) + " (" + sides.join(", ") + ")");
+        }
+        if (rect.left >= 0 && rect.right <= pageWidth) {
+          if (ring.left < -0.5) cuts.push("the side of the page (left)");
+          if (ring.right > pageWidth + 0.5) cuts.push("the side of the page (right)");
+        }
+        if (cuts.length) problems.push(describe(owner) + (owner === control ? "" : ", the ring for " + describe(control)) + ", is cut off by " + cuts.join(" and "));
+      });
+      control.removeAttribute(MARK);
+    });
+    copies.reverse().forEach(([list, rule]) => list.deleteRule(Array.from(list.cssRules).indexOf(rule)));
+    return problems;
+  }
+
   // ==========================================================================
   // Every page, at every width
   // ==========================================================================
@@ -379,6 +475,35 @@
     assert.ok(page.$(".site-header").classList.contains("is-compact"), "compact at 800 px wide");
     noErrors(page);
   });
+
+  test("site: the header glides into its pill straight away, without waiting for slow photos", async () => {
+    // Stands in for photos still on their way (History's Wikimedia photos take one to two
+    // seconds): the page's scripts never hear the window's load or pageshow events.
+    const PHOTOS_STILL_LOADING =
+      "<script>(function(){var add=window.addEventListener;window.addEventListener=function(type){" +
+      "if(type==='load'||type==='pageshow')return;return add.apply(this,arguments);};})();<\/script>";
+    const page = await openPage("history.html", { width: 1280, height: 700, inject: PHOTOS_STILL_LOADING });
+    assert.ok(!page.doc.documentElement.classList.contains("header-motion-initializing"), "the header's motion is on before the page has finished loading");
+    page.win.scrollTo({ top: 300, behavior: "instant" });
+    await frames(page.win, 3);
+    assert.ok(page.$(".site-header").classList.contains("is-compact"), "compact after scrolling down");
+    if (!page.win.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const moving = page.$(".site-header .header-inner").getAnimations().map((animation) => animation.transitionProperty);
+      assert.ok(moving.includes("width"), "the pill's width animates (moving: " + (moving.join(", ") || "nothing") + ")");
+    }
+    noErrors(page);
+  });
+
+  test("site: no focus ring is cut off by a scrolling box, a clipping box or the side of the page, at 375 and 1280 px", async () => {
+    const problems = [];
+    for (const width of [375, 1280]) {
+      for (const path of PAGES) {
+        const page = await openPage(path, { width, height: 820 });
+        clippedFocusRings(page).forEach((problem) => problems.push(path + " at " + width + " px: " + problem));
+      }
+    }
+    assert.none(problems, "focus rings cut off");
+  }, { timeout: 120000 });
 
   // ==========================================================================
   // Home page

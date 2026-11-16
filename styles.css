@@ -1521,7 +1521,8 @@ html.header-is-compact .site-header .brand-wordmark-fold {
       border-color var(--d4) var(--ease-out);
   }
 
-  /* No animation while the page is first loading */
+  /* No animation until the header's starting state is on screen (script.js switches it on
+     two frames after it runs, without waiting for photos) */
   html.header-motion-initializing .site-header .brand-wordmark-fold,
   html.header-motion-initializing .site-header .header-inner {
     transition: none;
@@ -2600,6 +2601,11 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .stage-detail { overflow: hidden; border: 1px solid var(--rule); border-radius: 15px; background: color-mix(in srgb, var(--surface) 58%, transparent); }
 .stage-detail summary { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.1rem; cursor: pointer; list-style: none; font-family: var(--sans); }
 .stage-detail summary::-webkit-details-marker { display: none; }
+/* The card clips whatever is drawn outside it, and the summary fills the card from edge to edge,
+   so a ring drawn outside the summary would never show. Draw it just inside the card's edge,
+   following its rounded corners, instead. */
+.stage-detail summary:focus-visible { outline-offset: -5px; border-radius: 14px; }
+.stage-detail[open] summary:focus-visible { border-radius: 14px 14px 0 0; }
 .stage-detail summary::after { content: "+"; margin-left: auto; color: var(--ink-soft); font-size: var(--text-lg); line-height: 1; }
 .stage-detail[open] summary::after { content: "−"; }
 .stage-detail summary strong, .stage-detail summary small { display: block; }
@@ -2719,7 +2725,18 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
 .task-editor-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-2); }
 .task-count { color: var(--ink-soft); font: var(--weight-medium) var(--text-sm) var(--sans); font-variant-numeric: tabular-nums; }
 .task-editor-note { margin-top: var(--space-2); color: var(--ink-soft); font-size: var(--text-sm); }
-.plan-table-scroll { max-width: 100%; margin-top: var(--space-3); overflow-x: auto; scrollbar-color: var(--rule) transparent; }
+/* A scrolling box cuts off whatever is drawn outside it, focus rings included, and the first
+   and last cells sit right against its edges. The padding leaves room for the widest ring
+   (3px plus a 3px gap, round the remove buttons); the negative margins cancel it out, so the
+   table still lines up with the text above and keeps the same space below. */
+.plan-table-scroll {
+  --ring-room: .5rem;
+  max-width: calc(100% + 2 * var(--ring-room));
+  margin: calc(var(--space-3) - var(--ring-room)) calc(-1 * var(--ring-room)) calc(-1 * var(--ring-room));
+  padding: var(--ring-room);
+  overflow-x: auto;
+  scrollbar-color: var(--rule) transparent;
+}
 .plan-table { width: 100%; border-collapse: collapse; font-family: var(--sans); }
 .plan-table th { padding: 0 var(--space-half) var(--space-1); white-space: nowrap; border-bottom: 1px solid var(--rule); color: var(--ink-soft); font-size: var(--text-sm); font-weight: var(--weight-medium); text-align: left; }
 .plan-table th:not(:first-child) { padding-left: calc(var(--space-half) + var(--space-2)); }
