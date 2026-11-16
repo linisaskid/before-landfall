@@ -122,7 +122,15 @@
       const widthInEm = text.getBoundingClientRect().width / fontSize;
       const current = parseFloat(window.getComputedStyle(document.documentElement).getPropertyValue("--wordmark-fold-width")) || 6.27;
       if (Math.abs(widthInEm - current) > 0.02) {
+        // A correction, not a change of state, so it should not animate. The header's motion
+        // may already be on by the time the font arrives: switch it off for this one change.
+        const motionOn = !root.classList.contains("header-motion-initializing");
+        if (motionOn) root.classList.add("header-motion-initializing");
         document.documentElement.style.setProperty("--wordmark-fold-width", widthInEm.toFixed(3) + "em");
+        if (motionOn) {
+          fold.getBoundingClientRect(); // apply the new width while motion is still off
+          root.classList.remove("header-motion-initializing");
+        }
       }
     }
 
@@ -165,13 +173,15 @@
 
     update();
 
-    function finishInitialization() {
+    // Switch the header's motion on two frames from now, once its starting state is on screen.
+    // This used to wait for the window's load event, but that also waits for every photo near
+    // the top of the page. The Wikimedia photos on History and Calculator take one to two
+    // seconds to arrive, so if you scrolled straight away the header jumped into its pill
+    // instead of gliding.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       update();
       root.classList.remove("header-motion-initializing");
-    }
-
-    if (document.readyState === "complete") finishInitialization();
-    else window.addEventListener("pageshow", finishInitialization, { once: true });
+    }));
   }
 
   function setUpThemeSwitch() {

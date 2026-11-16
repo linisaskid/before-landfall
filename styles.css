@@ -1521,7 +1521,8 @@ html.header-is-compact .site-header .brand-wordmark-fold {
       border-color var(--d4) var(--ease-out);
   }
 
-  /* No animation while the page is first loading */
+  /* No animation until the header's starting state is on screen (script.js switches it on
+     two frames after it runs, without waiting for photos) */
   html.header-motion-initializing .site-header .brand-wordmark-fold,
   html.header-motion-initializing .site-header .header-inner {
     transition: none;

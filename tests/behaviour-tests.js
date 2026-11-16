@@ -476,6 +476,24 @@
     noErrors(page);
   });
 
+  test("site: the header glides into its pill straight away, without waiting for slow photos", async () => {
+    // Stands in for photos still on their way (History's Wikimedia photos take one to two
+    // seconds): the page's scripts never hear the window's load or pageshow events.
+    const PHOTOS_STILL_LOADING =
+      "<script>(function(){var add=window.addEventListener;window.addEventListener=function(type){" +
+      "if(type==='load'||type==='pageshow')return;return add.apply(this,arguments);};})();<\/script>";
+    const page = await openPage("history.html", { width: 1280, height: 700, inject: PHOTOS_STILL_LOADING });
+    assert.ok(!page.doc.documentElement.classList.contains("header-motion-initializing"), "the header's motion is on before the page has finished loading");
+    page.win.scrollTo({ top: 300, behavior: "instant" });
+    await frames(page.win, 3);
+    assert.ok(page.$(".site-header").classList.contains("is-compact"), "compact after scrolling down");
+    if (!page.win.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const moving = page.$(".site-header .header-inner").getAnimations().map((animation) => animation.transitionProperty);
+      assert.ok(moving.includes("width"), "the pill's width animates (moving: " + (moving.join(", ") || "nothing") + ")");
+    }
+    noErrors(page);
+  });
+
   test("site: no focus ring is cut off by a scrolling box, a clipping box or the side of the page, at 375 and 1280 px", async () => {
     const problems = [];
     for (const width of [375, 1280]) {
