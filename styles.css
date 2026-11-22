@@ -3241,6 +3241,144 @@ button.button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3
      instead of one link wrapping on its own. */
   .nav-list { display: grid; grid-template-columns: repeat(3, auto); justify-content: space-between; row-gap: 0; }
 }
+
+/* --- Phones: the page links fold into a menu -----------------------------
+   Two rows of small links under the logo crowded the top of every page. On a
+   phone the bar now holds the logo, the account link and a Menu button, and the
+   links drop down from under the bar as one large tap target each, over a dimmed
+   page. The class comes from the inline script in <head>; without JavaScript the
+   links stay on show as above. The script that opens and closes it is in script.js. */
+.nav-toggle { display: none; }
+@media (max-width: 39.99rem) {
+  html.has-nav-menu .nav-toggle {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    order: 1;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: 2.25rem;
+    padding: 0 var(--space-2) 0 0.7rem;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--ink);
+    font: var(--weight-medium) var(--text-sm)/1.2 var(--sans);
+    cursor: pointer;
+  }
+  html.has-nav-menu .nav-toggle:hover,
+  html.nav-open .nav-toggle { border-color: var(--accent); }
+  /* About 44px to tap, while the pill keeps its size */
+  html.has-nav-menu .nav-toggle::after { content: ""; position: absolute; inset: -0.25rem; }
+
+  /* Two bars that turn into a cross while the menu is open */
+  .nav-toggle-icon { position: relative; width: 1rem; height: 0.75rem; }
+  .nav-toggle-icon > span {
+    position: absolute;
+    left: 0;
+    top: calc(50% - 1px);
+    width: 100%;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+    transform: translateY(-3px);
+  }
+  .nav-toggle-icon > span + span { transform: translateY(3px); }
+  html.nav-open .nav-toggle-icon > span { transform: rotate(45deg); }
+  html.nav-open .nav-toggle-icon > span + span { transform: rotate(-45deg); }
+
+  /* A long member name gives way to the Menu button and ends in an ellipsis */
+  html.has-nav-menu .account-link { flex: 0 1 auto; min-width: 0; margin-left: auto; }
+  html.has-nav-menu .header-inner { flex-wrap: nowrap; gap: var(--space-1); }
+  html.has-nav-menu .header-inner > .brand { margin-right: var(--space-1); }
+
+  /* The panel hangs from the bottom of the header and covers its bottom rule */
+  html.has-nav-menu .header-inner > nav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    padding: var(--space-half) var(--gutter) var(--space-2);
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper);
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  html.nav-open .header-inner > nav {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+  }
+  /* The dimmed page under the panel. A tap on it closes the menu (script.js). */
+  html.has-nav-menu .header-inner > nav::before {
+    content: "";
+    position: absolute;
+    top: calc(100% + 1px);
+    left: 0;
+    right: 0;
+    height: 100vh;
+    background: rgb(6 18 24 / 0.45);
+  }
+
+  html.has-nav-menu .nav-list {
+    display: block;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--text-md);
+  }
+  html.has-nav-menu .nav-list li + li { border-top: 1px solid var(--divider); }
+  html.has-nav-menu .nav-list a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 3.25rem;
+    padding: 0;
+    border-bottom: 0;
+    font: var(--weight-bold) 1.375rem/1.2 var(--display);
+  }
+  /* An arrow on each link, and a dot on the page you are on */
+  html.has-nav-menu .nav-list a::after {
+    content: "→";
+    position: static;
+    inset: auto;
+    color: var(--ink-soft);
+    font: var(--weight-regular) var(--text-md)/1 var(--sans);
+  }
+  html.has-nav-menu .nav-list a[aria-current="page"]::after {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  html.has-nav-menu .nav-list li { opacity: 0; transform: translateY(-0.35rem); }
+  html.nav-open .nav-list li { opacity: 1; transform: none; }
+}
+@media (max-width: 39.99rem) and (prefers-reduced-motion: no-preference) {
+  /* Closing: fade out quickly, then hide. Opening: slide down, links following one by one. */
+  html.has-nav-menu .header-inner > nav {
+    transition:
+      opacity var(--d2) var(--ease-out),
+      transform var(--d2) var(--ease-out),
+      visibility 0s linear var(--d2);
+  }
+  html.nav-open .header-inner > nav {
+    transition:
+      opacity var(--d3) var(--ease-out),
+      transform var(--d4) var(--ease-out),
+      visibility 0s;
+  }
+  html.has-nav-menu .nav-list li { transition: opacity var(--d2) var(--ease-out), transform var(--d2) var(--ease-out); }
+  html.nav-open .nav-list li {
+    transition: opacity var(--d3) var(--ease-out), transform var(--d4) var(--ease-out);
+    transition-delay: calc(40ms + var(--item, 0) * 30ms);
+  }
+  .nav-toggle-icon > span { transition: transform var(--d3) var(--ease-out); }
+  html.has-nav-menu .nav-list a::after { transition: transform var(--d2) var(--ease-out); }
+  html.has-nav-menu:not(.hover-cold) .nav-list a:hover::after { transform: translateX(3px); }
+}
 @media (min-width: 40rem) and (max-width: 61rem) {
   /* Six page links and the account link need about 880px beside the full logo, so
      below 61rem the links take their own row under the logo. */

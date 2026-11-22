@@ -6,7 +6,7 @@
  *
  * Contents
  *   1. Shared data and helpers
- *   2. Site-wide: theme switch, sticky header, smooth corners, reveals
+ *   2. Site-wide: theme switch, sticky header, phone menu, smooth corners, reveals
  *   3. Home page: landfall slider and season message
  *   4. Cyclones page: basin picker, formation stepper, category picker, township chart
  *   5. History page: storm timeline
@@ -182,6 +182,59 @@
       update();
       root.classList.remove("header-motion-initializing");
     }));
+  }
+
+  // On a phone the page links sit in a menu under the Menu button (styles.css, "Phones:
+  // the page links fold into a menu"). It closes on Escape, on a tap outside it or on a
+  // link, when focus moves out of it, and when the window grows past phone width.
+  function setUpNavMenu() {
+    const toggle = document.querySelector(".site-header .nav-toggle");
+    const nav = toggle && document.getElementById(toggle.getAttribute("aria-controls"));
+    if (!nav) return;
+
+    const root = document.documentElement;
+    const phone = window.matchMedia("(max-width: 39.99rem)");
+    nav.querySelectorAll(".nav-list > li").forEach((item, index) => item.style.setProperty("--item", index));
+
+    const isOpen = () => toggle.getAttribute("aria-expanded") === "true";
+
+    function setOpen(open) {
+      if (open === isOpen()) return;
+      toggle.setAttribute("aria-expanded", String(open));
+      root.classList.toggle("nav-open", open);
+    }
+
+    toggle.addEventListener("click", () => {
+      setOpen(!isOpen());
+      sound(isOpen() ? "push" : "pop");
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !isOpen()) return;
+      setOpen(false);
+      toggle.focus();
+    });
+
+    // The dimmed page below the panel belongs to the nav, so a tap there lands on the nav itself.
+    document.addEventListener("click", (event) => {
+      if (!isOpen() || toggle.contains(event.target)) return;
+      const onLink = event.target.closest && event.target.closest("a");
+      if (event.target === nav || onLink || !nav.contains(event.target)) setOpen(false);
+    });
+
+    nav.addEventListener("focusout", (event) => {
+      const next = event.relatedTarget;
+      if (isOpen() && next && !nav.contains(next) && next !== toggle) setOpen(false);
+    });
+
+    phone.addEventListener("change", (event) => {
+      if (!event.matches) setOpen(false);
+    });
+
+    // Coming back with the Back button can restore the page as it was left, menu and all.
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) setOpen(false);
+    });
   }
 
   function setUpThemeSwitch() {
@@ -2228,6 +2281,7 @@
   // Site-wide
   setUpThemeSwitch();
   setUpStickyHeader();
+  setUpNavMenu();
   applySmoothCorners();
   setUpRevealAnimations();
   // Home

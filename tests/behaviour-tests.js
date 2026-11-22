@@ -494,6 +494,68 @@
     noErrors(page);
   });
 
+  test("site: on a phone the page links fold into a menu that opens, closes and gets out of the way", async () => {
+    const problems = [];
+    let page = await openPage("history.html", { width: 375, height: 700, inject: REDUCED_MOTION });
+    const toggle = page.$(".nav-toggle");
+    const links = page.$$(".site-header .nav-list a");
+    const root = page.doc.documentElement;
+    const open = () => toggle.getAttribute("aria-expanded") === "true";
+
+    assert.ok(isShown(toggle), "the Menu button shows at 375 px");
+    assert.equal(text(toggle), "Menu", "the button is called Menu");
+    assert.ok(links.every((link) => !isShown(link)), "the links are folded away at first");
+    const bar = page.$(".header-inner").getBoundingClientRect();
+    if (bar.height > 48) problems.push("the header bar is " + Math.round(bar.height) + " px tall with the menu shut");
+    if (Math.abs(toggle.getBoundingClientRect().top - page.$("#account-link").getBoundingClientRect().top) > 4) problems.push("the Menu button is not beside the account link");
+
+    toggle.click();
+    await frames(page.win, 2);
+    assert.ok(open() && root.classList.contains("nav-open"), "the button opens the menu");
+    links.forEach((link) => {
+      if (!isShown(link)) problems.push(link.textContent + " is hidden in the open menu");
+      const box = link.getBoundingClientRect();
+      if (box.height < 44) problems.push(link.textContent + " is only " + Math.round(box.height) + " px tall to tap");
+      if (box.top < bar.bottom - 1) problems.push(link.textContent + " sits over the header bar");
+    });
+    overflow(page).forEach((problem) => problems.push("open menu: " + problem));
+
+    key(page.doc.body, "Escape");
+    assert.ok(!open() && !root.classList.contains("nav-open"), "Escape closes it");
+    assert.equal(page.doc.activeElement, toggle, "and gives focus back to the button");
+
+    toggle.click();
+    const below = page.$(".site-header nav");
+    below.click(); // a tap on the dimmed page lands on the nav itself
+    assert.ok(!open(), "a tap on the dimmed page closes it");
+
+    toggle.click();
+    page.$(".nav-list li").click(); // the line between two links
+    assert.ok(open(), "a tap inside the panel but not on a link keeps it open");
+    // A test frame has no keyboard focus, so the browser sends no focus events: send the one Tab would.
+    const tabOut = (to) => links[links.length - 1].dispatchEvent(new page.win.FocusEvent("focusout", { bubbles: true, relatedTarget: to }));
+    tabOut(links[0]);
+    assert.ok(open(), "focus moving between links keeps it open");
+    tabOut(page.$("#account-link"));
+    assert.ok(!open(), "focus moving out of the menu closes it");
+
+    toggle.click();
+    page.frame.width = "800";
+    await frames(page.win, 3);
+    assert.ok(!open(), "growing past phone width closes it");
+    assert.ok(!isShown(toggle) && links.every(isShown), "and the links are back in the header at 800 px");
+    noErrors(page);
+
+    page = await openPage("history.html", { width: 1280 });
+    assert.ok(!isShown(page.$(".nav-toggle")), "no Menu button on a wide screen");
+
+    // With no JavaScript at all there is nothing to run the button, so the links stay on show.
+    page = await openPage("history.html", { width: 375, transform: withoutScripts(/./) });
+    assert.ok(!isShown(page.$(".nav-toggle")), "no Menu button without JavaScript");
+    if (!page.$$(".site-header .nav-list a").every(isShown)) problems.push("without JavaScript the links are hidden");
+    assert.none(problems);
+  });
+
   test("site: no focus ring is cut off by a scrolling box, a clipping box or the side of the page, at 375 and 1280 px", async () => {
     const problems = [];
     for (const width of [375, 1280]) {

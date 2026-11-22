@@ -27,6 +27,9 @@
         if (saved === "light" || saved === "dark") root.dataset.theme = saved;
       } catch (error) {}
       root.classList.add("header-motion-initializing");
+      // On a phone the page links fold into a menu (script.js runs its button). Set here so
+      // the links never show for a moment first; with no JavaScript at all they stay on show.
+      root.classList.add("has-nav-menu");
       if (window.scrollY > 15 || (window.visualViewport ? window.visualViewport.width : window.innerWidth) <= 870) {
         root.classList.add("header-is-compact");
       }
@@ -76,7 +79,8 @@
         <span class="brand-wordmark" aria-hidden="true"><span class="brand-wordmark-initial">B</span><span class="brand-wordmark-fold"><span class="brand-wordmark-expansion">efore Landfa</span></span><span class="brand-wordmark-slashes">//</span></span>
         <span class="visually-hidden">Before Landfall</span>
       </a>
-      <nav aria-label="Main">
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav"><span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span></span><span class="nav-toggle-label">Menu</span></button>
+      <nav id="site-nav" aria-label="Main">
         <ul class="nav-list">
           <li><a href="cyclones.html" aria-current="page">Cyclones</a></li>
           <li><a href="history.html">History</a></li>
